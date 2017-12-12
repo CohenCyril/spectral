@@ -6,7 +6,8 @@ From mathcomp
 Require Import matrix mxalgebra vector falgebra complex algC algnum.
 From mathcomp
 Require Import complex fieldext mxpoly.
-From mathcomp Require Import vector finmap multiset.
+From mathcomp Require Import vector.
+ (* finmap multiset. *)
 
 Require Import forms.
 
@@ -17,87 +18,63 @@ Unset Printing Implicit Defensive.
 Import GRing.Theory Num.Theory.
 Local Open Scope ring_scope.
 
-Section DecField.
+(* Section DecField. *)
 
-Variable F : decFieldType.
+(* Variable F : decFieldType. *)
 
-Lemma dec_factor_theorem (p : {poly F}) : p != 0 ->
-  {s : seq F & {q : {poly F} | p = q * \prod_(x <- s) ('X - x%:P)
-                             /\ forall x, ~~ root q x }}.
-Proof.
-pose polyT (p : seq F) := (foldr (fun c f => f * 'X_0 + c%:T) (0%R)%:T p)%T.
-have eval_polyT (q : {poly F}) x : GRing.eval [:: x] (polyT q) = q.[x].
-  by rewrite /horner; elim: (val q) => //= ? ? ->.
-elim: size {-2}p (leqnn (size p)) => [?|n IHn {p} p sp_ltSn p_neq0].
-  by move=> /size_poly_leq0P->; rewrite eqxx.
-have /decPcases /= := @satP F [::] ('exists 'X_0, polyT p == 0%T).
-case: ifP => [_ /sig_eqW[x]|_ noroot]; last first.
-  exists [::], p; rewrite big_nil mulr1; split => // x.
-  by apply/negP=> /rootP rpx; apply noroot; exists x; rewrite eval_polyT.
-rewrite eval_polyT => /rootP /factor_theorem /sig_eqW [q p_eq].
-move: p_neq0 sp_ltSn; rewrite p_eq {p_eq}.
-rewrite mulf_eq0 polyXsubC_eq0 orbF => q_neq0.
-rewrite size_mul ?polyXsubC_eq0 // ?size_XsubC addn2 /= ltnS => sq_le_n.
-have [] // := IHn q => s [r [-> nr]]; exists (s ++ [::x]), r.
-by rewrite big_cat /= big_seq1 mulrA.
-Qed.
+(* Local Open Scope fset_scope. *)
+(* Local Open Scope mset_scope. *)
 
-Local Open Scope fset_scope.
-Local Open Scope mset_scope.
+(* Definition mroot p : {mset F} := seq_mset (projT1 (dec_factor_theorem p)). *)
 
-Definition mroot p : {mset F} :=
-  if (p != 0) =P true is ReflectT p_neq0
-  then seq_mset (projT1 (dec_factor_theorem p_neq0)) else mset0.
+(* Lemma mem_mset_seq (X : choiceType) (r : seq X) : seq_mset r =i r. *)
+(* Proof. by move=> x; rewrite mem_finsupp mset_seqE; apply/eqP/count_memPn. Qed. *)
 
-Lemma mem_mset_seq (X : choiceType) (r : seq X) : seq_mset r =i r.
-Proof. by move=> x; rewrite mem_finsupp mset_seqE; apply/eqP/count_memPn. Qed.
+(* Lemma big_mset0 (R : Type) (idx : R) (op : Monoid.com_law idx) *)
+(*       (I : choiceType) (P : pred (mset0 : {mset I})) (E : mset0 -> R) : *)
+(*       \big[op/idx]_(x : mset0 | P x) E x = idx. *)
+(* Proof. *)
+(* by rewrite big1 //= => -[/= x xP]; suff: false by []; move: xP; rewrite inE. *)
+(* Qed. *)
 
-Lemma big_mset0 (R : Type) (idx : R) (op : Monoid.com_law idx)
-      (I : choiceType) (P : pred (mset0 : {mset I})) (E : mset0 -> R) :
-      \big[op/idx]_(x : mset0 | P x) E x = idx.
-Proof.
-by rewrite big1 //= => -[/= x xP]; suff: false by []; move: xP; rewrite inE.
-Qed.
+(* Lemma big_seq_mset (R : Type) (idx : R) (op : Monoid.com_law idx) *)
+(*       (I : choiceType) (r : seq I) (P : pred I) (E : I -> R) : *)
+(*       \big[op/idx]_(x : seq_mset r | P (val x)) E (val x) *)
+(*       = \big[op/idx]_(x <- undup r | P x) E x. *)
+(* Proof. *)
+(* rewrite -!(big_map val) /=; apply: eq_big_perm. *)
+(* rewrite uniq_perm_eq ?undup_uniq // /index_enum -enumT. *)
+(*   by rewrite map_inj_uniq ?enum_uniq; last exact: val_inj. *)
+(* move=> x /=; rewrite mem_undup; apply/mapP/idP => [[y _ ->]|] /=. *)
+(*   by rewrite -mem_mset_seq fsvalP. *)
+(* by rewrite -mem_mset_seq => x_in_mr; exists [`x_in_mr]; rewrite ?mem_enum. *)
+(* Qed. *)
 
-Lemma big_seq_mset (R : Type) (idx : R) (op : Monoid.com_law idx)
-      (I : choiceType) (r : seq I) (P : pred I) (E : I -> R) :
-      \big[op/idx]_(x : seq_mset r | P (val x)) E (val x)
-      = \big[op/idx]_(x <- undup r | P x) E x.
-Proof.
-rewrite -!(big_map val) /=; apply: eq_big_perm.
-rewrite uniq_perm_eq ?undup_uniq // /index_enum -enumT.
-  by rewrite map_inj_uniq ?enum_uniq; last exact: val_inj.
-move=> x /=; rewrite mem_undup; apply/mapP/idP => [[y _ ->]|] /=.
-  by rewrite -mem_mset_seq fsvalP.
-by rewrite -mem_mset_seq => x_in_mr; exists [`x_in_mr]; rewrite ?mem_enum.
-Qed.
+(* Lemma mroot_subproof p : *)
+(*   \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p *)
+(*   /\ (p != 0 -> forall x, *)
+(*   ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x). *)
+(* Proof. *)
+(* rewrite /mroot; case: dec_factor_theorem => /= s [q [-> rq]]. *)
+(* set rhs := (X in _ %| _ * X); set lhs := (X in X %| _); rewrite -/rhs -/lhs. *)
+(* suff -> // : lhs = rhs. *)
+(*   rewrite dvdp_mull ?dvdpp //; split=> //. *)
+(*   rewrite mulf_eq0 => /norP [q_neq0 rhs_neq0] x. *)
+(*   by rewrite mulpK // rq. *)
+(* rewrite [LHS](big_seq_mset _ _ predT (fun x => ('X - x%:P) ^+ seq_mset s x)) /=. *)
+(* rewrite -[RHS]big_undup_iterop_count /=; apply: eq_bigr => x _. *)
+(* by rewrite mset_seqE. *)
+(* Qed. *)
 
-Lemma mroot_subproof p :
-  \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p
-  /\ (p != 0 -> forall x,
-  ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x).
-Proof.
-rewrite /mroot; case: eqP => //= [p_neq0|]; last first.
-  by rewrite big_mset0 dvd1p.
-case: dec_factor_theorem => /= s [q [-> rq]].
-set rhs := (X in _ %| _ * X); set lhs := (X in X %| _); rewrite -/rhs -/lhs.
-suff -> // : lhs = rhs.
-  rewrite dvdp_mull ?dvdpp //; split=> //.
-  by rewrite mulf_eq0; move=> /norP [_ rhs_neq0] x; rewrite mulpK.
-rewrite [LHS](big_seq_mset _ _ predT (fun x => ('X - x%:P) ^+ seq_mset s x)) /=.
-rewrite -[RHS]big_undup_iterop_count /=; apply: eq_bigr => x _.
-by rewrite mset_seqE.
-Qed.
+(* Lemma prod_mroot_dvd p : *)
+(*   \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p. *)
+(* Proof. by have []:= mroot_subproof p. Qed. *)
 
-Lemma prod_mroot_dvd p :
-  \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p.
-Proof. by have []:= mroot_subproof p. Qed.
+(* Lemma noroot_div_mroot p : p != 0 -> forall x, *)
+(*   ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x. *)
+(* Proof. by have []:= mroot_subproof p. Qed. *)
 
-Lemma noroot_div_mroot p : p != 0 -> forall x,
-  ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x.
-Proof. by have []:= mroot_subproof p. Qed.
-
-End DecField.
+(* End DecField. *)
 
 Local Notation stable V f := (V%MS *m f%R <= V%MS)%MS.
 Section Stability.
