@@ -51,7 +51,7 @@ Lemma row_mx_eq0 (M : zmodType) (m n1 n2 : nat)
  (A1 : 'M[M]_(m, n1)) (A2 : 'M_(m, n2)):
  (row_mx A1 A2 == 0) = (A1 == 0) && (A2 == 0).
 Proof.
-apply/eqP/andP; last by case=> /eqP -> /eqP ->; rewrite row_mx0.
+apply/eqP/andP; last by case=> /eqP-> /eqP->; rewrite row_mx0.
 by rewrite -row_mx0 => /eq_row_mx [-> ->].
 Qed.
 
@@ -192,100 +192,6 @@ End Exports.
 End Bilinear.
 Include Bilinear.Exports.
 
-Module Sesquilinear.
-
-Section ClassDef.
-
-Variables (R : ringType) (U : lmodType R) (V : ringType) (s s' : R -> V -> V)
-          (eps : bool) (theta : V -> V).
-Implicit Type phUUV : phant (U -> U -> V).
-
-Local Coercion GRing.Scale.op : GRing.Scale.law >-> Funclass.
-
-Definition mixin_of (f : U -> U -> V) := 
-  forall x y, f x y = (-1) ^+ eps * theta (f y x).
-
-Record class_of (f : U -> U -> V) : Prop := Class {
-  base :> Bilinear.class_of s s' f;
-  mixin : mixin_of f   
-}.
-
-Structure map phUUV := Pack {apply; _ : class_of apply}.
-Local Coercion apply : map >-> Funclass.
-
-Definition class phUUV  (cF : map phUUV) :=
-   let: Pack _ c as cF' := cF return class_of cF' in c.
-
-Canonical bilinear phUUV cF := Bilinear.Pack phUUV (base (@class phUUV cF)).
-
-Canonical additiver phUV phUUV (u : U) cF := GRing.Additive.Pack phUV
-  (Bilinear.baser (@class phUUV cF) u).
-Canonical linearr phUV  phUUV (u : U) cF := GRing.Linear.Pack phUV 
-  (Bilinear.baser (@class phUUV cF) u).
-
-Canonical additivel phUV phUUV (u' : U) (cF : map phUUV) := 
-  @GRing.Additive.Pack _ _ phUV (applyr cF u')
-    (Bilinear.basel (@class phUUV cF) u').
-Canonical linearl phUV phUUV  (u' : U) (cF : map phUUV) := 
-  @GRing.Linear.Pack _ _ _ _ phUV (applyr cF u')
-    (Bilinear.basel (@class phUUV cF) u').
-
-Definition pack (phUUV : phant (U -> U -> V)) f mf :=
-  fun (bF : Bilinear.map s s' phUUV) fc of f = bF &
-      (phant_id (Bilinear.class bF) fc) =>
-  @Pack (Phant _) f (Class fc mf).
-
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Notation mapUV := (map (Phant (U -> U -> V))). *)
-(* Definition map_class := mapUV. *)
-(* Definition map_at (a : R) := mapUV. *)
-(* Structure map_for a s_a := MapFor {map_for_map : mapUV; _ : s a = s_a}. *)
-(* Definition unify_map_at a (f : map_at a) := MapFor f (erefl (s a)). *)
-(* Structure wrapped := Wrap {unwrap : mapUV}. *)
-(* Definition wrap (f : map_class) := Wrap f. *)
-
-End ClassDef.
-
-Module Exports.
-Notation sesquilinear eps theta f := (mixin_of eps theta f).
-Notation bilmorphism_for s s' f := (class_of s s' f).
-Notation bilmorphism f := (bilmorphism_for *:%R *:%R f).
-Coercion class_of_axiom : axiom >-> bilmorphism_for.
-Coercion baser : bilmorphism_for >-> Funclass.
-Coercion apply : map >-> Funclass.
-Notation "{ 'bilinear' fUV | s & s' }" := (map s s' (Phant fUV))
-  (at level 0, format "{ 'bilinear'  fUV  |  s  &  s' }") : ring_scope.
-Notation "{ 'bilinear' fUV | s }" := (map s.1 s.2 (Phant fUV))
-  (at level 0, format "{ 'bilinear'  fUV  |  s }") : ring_scope.
-Notation "{ 'bilinear' fUV }" := {bilinear fUV | *:%R & *:%R}
-  (at level 0, format "{ 'bilinear'  fUV }") : ring_scope.
-Notation "{ 'biscalar' U }" := {bilinear U -> U -> _ | *%R & *%R}
-  (at level 0, format "{ 'biscalar'  U }") : ring_scope.
-Notation "[ 'bilinear' 'of' f 'as' g ]" := 
-  (@pack  _ _ _ _ _ _ _ _ _ _ f g erefl _ _ 
-         (fun=> erefl) (fun=> idfun) _ _ (fun=> erefl) (fun=> idfun)).
-Notation "[ 'bilinear' 'of' f ]" :=  [bilinear of f as f]
-  (at level 0, format "[ 'bilinear'  'of'  f ]") : form_scope.
-Coercion additiver : map >-> GRing.Additive.map.
-Coercion linearr : map >->  GRing.Linear.map.
-Canonical additiver.
-Canonical linearr.
-Canonical additivel.
-Canonical linearl.
-Notation applyr := (@applyr_head _ _ _ _ _ _ tt (Phant _)).
-(* Canonical additive. *)
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Coercion map_for_map : map_for >-> map. *)
-(* Coercion unify_map_at : map_at >-> map_for. *)
-(* Canonical unify_map_at. *)
-(* Coercion unwrap : wrapped >-> map. *)
-(* Coercion wrap : map_class >-> wrapped. *)
-(* Canonical wrap. *)
-End Exports.
-
-End Bilinear.
-Include Bilinear.Exports.
-
 Section BilinearTheory.
 
 Variable R : ringType.
@@ -351,31 +257,27 @@ Canonical rev_mulmx (R : ringType) m n p := @RevOp _ _ _ (@mulmxr_head R m n p t
 
 Canonical mulmx_bilinear (R : comRingType) m n p := [bilinear of @mulmx R m n p].
 
-Section classfun.
-Import mathcomp.character.classfun.
+(* Section classfun. *)
+(* Import mathcomp.character.classfun. *)
 
-Canonical rev_cfdot (gT : finGroupType) (B : {set gT}) := 
-  @RevOp _ _ _ (@cfdotr_head gT B tt)
-  (@cfdot gT B) (fun _ _ => erefl).
+(* Canonical rev_cfdot (gT : finGroupType) (B : {set gT}) :=  *)
+(*   @RevOp _ _ _ (@cfdotr_head gT B tt) *)
+(*   (@cfdot gT B) (fun _ _ => erefl). *)
 
-Section Cfdot.
-Variables (gT : finGroupType) (G : {group gT}).
-Lemma cfdot_is_linear xi : linear_for (@conjC _ \; *%R) (cfdot xi : 'CF(G) -> algC^o).
-Proof.
-move=> /= a phi psi; rewrite cfdotC -cfdotrE linearD linearZ /=.
-by rewrite !['[_, xi]]cfdotC rmorphD rmorphM !conjCK.
-Qed.
-Canonical cfdot_additive xi := Additive (cfdot_is_linear xi).
-Canonical cfdot_linear xi := Linear (cfdot_is_linear xi).
-End Cfdot.
+(* Section Cfdot. *)
+(* Variables (gT : finGroupType) (G : {group gT}). *)
+(* Lemma cfdot_is_linear xi : linear_for (@conjC _ \; *%R) (cfdot xi : 'CF(G) -> algC^o). *)
+(* Proof. *)
+(* move=> /= a phi psi; rewrite cfdotC -cfdotrE linearD linearZ /=. *)
+(* by rewrite !['[_, xi]]cfdotC rmorphD rmorphM !conjCK. *)
+(* Qed. *)
+(* Canonical cfdot_additive xi := Additive (cfdot_is_linear xi). *)
+(* Canonical cfdot_linear xi := Linear (cfdot_is_linear xi). *)
+(* End Cfdot. *)
 
-Canonical cfdot_bilinear (gT : finGroupType) (B : {group gT}) :=
-  [bilinear of @cfdot gT B].
-End classfun.
-
-
-
-
+(* Canonical cfdot_bilinear (gT : finGroupType) (B : {group gT}) := *)
+(*   [bilinear of @cfdot gT B]. *)
+(* End classfun. *)
 
 Section BilinearForms.
 
