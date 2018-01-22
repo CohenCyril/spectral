@@ -650,6 +650,16 @@ Definition spectral_diag n (A : 'M[C]_n) : 'rV_n :=
   if @normal_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).2 else 0.
 
+Lemma spectral_unitary n (A : 'M[C]_n) : spectralmx A \is unitary _ _.
+Proof.
+rewrite /spectralmx; case: normal_spectral_subproof; last first.
+  by move=> _; apply/unitaryP; rewrite trmx1 map_mx1 mulmx1.
+by move=> ?; case: sig2_eqW.
+Qed.
+
+Lemma spectral_unit  n (A : 'M[C]_n) : spectralmx A \in unitmx.
+Proof. exact/unitary_unit/spectral_unitary. Qed.
+
 Theorem normal_spectralP {n} {A : 'M[C]_n}
   (P := spectralmx A) (sp := spectral_diag A) :
   reflect (A = invmx P *m diag_mx sp *m P) (A \is normalmx _).
@@ -720,7 +730,10 @@ Lemma mxOverMmx m n p :
   {in mxOver kS & mxOver kS,
       forall u : 'M[C]_(m, n), forall v : 'M[C]_(n, p),
         u *m v \is a mxOver kS}.
-Admitted.
+Proof.
+move=> M N /mxOverP MS /mxOverP NS; apply/mxOverP=> i j.
+by rewrite !mxE rpred_sum // => k _; rewrite rpredM.
+Qed.
 
 End mxOverRing.
 
@@ -739,7 +752,7 @@ move=> Ahermi; apply/normalmxP.
 by rewrite {1 4}[A](sesquiP false conjC _ _) // !linearZ /= -!scalemxAl.
 Qed.
 
-Lemma similarR n (A B P : 'M[C]_n) : P \in unitmx ->
+Lemma real_similar n (A B P : 'M[C]_n) : P \in unitmx ->
   invmx P *m A *m P = B ->
   A \is a mxOver Num.real -> B \is a mxOver Num.real ->
   let Q a := P ^ (@Re _) + a *: P ^ (@Im _) in
@@ -789,9 +802,20 @@ Qed.
 Lemma hermitian_spectral n (A : 'M[C]_n) : A \is hermitian ->
   spectral_diag A \is a mxOver Num.real.
 Proof.
-move=> Ahermi; rewrite [A](normal_spectralP _) ?hermitian_normalmx//.
-Abort.
-
+move=> Ahermi; have /hermitian_normalmx /normal_spectralP A_eq := Ahermi.
+have /(congr1 (fun X => X^t*)) := A_eq.
+rewrite inv_unitary ?spectral_unitary //.
+rewrite !trmx_mul !map_mxM map_trmx trmxK -map_mx_comp.
+rewrite tr_diag_mx map_diag_mx (eq_map_mx _ (@conjCK _)) map_mx_id.
+rewrite -[in RHS]inv_unitary ?spectral_unitary //.
+have := sesquiP _ _ _ Ahermi; rewrite expr0 scale1r => <-; rewrite {1}A_eq.
+rewrite mulmxA; move=> /(congr1 (mulmx^~ (invmx (spectralmx A)))).
+rewrite !mulmxK ?spectral_unit //.
+move=> /(congr1 (mulmx (spectralmx A))); rewrite !mulKVmx ?spectral_unit //.
+move=> eq_A_conjA; apply/mxOverP => i j; rewrite ord1 {i}.
+have /matrixP /(_ j j) := eq_A_conjA; rewrite !mxE eqxx !mulr1n.
+by move=> /esym /CrealP.
+Qed.
 
 (* Lemma schur n (A : 'M[C]_n) : (n > 0)%N -> *)
 (*   exists2 P : 'M[C]_n, P \is unitary n n &  *)
