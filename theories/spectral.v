@@ -18,64 +18,6 @@ Unset Printing Implicit Defensive.
 Import GRing.Theory Num.Theory.
 Local Open Scope ring_scope.
 
-(* Section DecField. *)
-
-(* Variable F : decFieldType. *)
-
-(* Local Open Scope fset_scope. *)
-(* Local Open Scope mset_scope. *)
-
-(* Definition mroot p : {mset F} := seq_mset (projT1 (dec_factor_theorem p)). *)
-
-(* Lemma mem_mset_seq (X : choiceType) (r : seq X) : seq_mset r =i r. *)
-(* Proof. by move=> x; rewrite mem_finsupp mset_seqE; apply/eqP/count_memPn. Qed. *)
-
-(* Lemma big_mset0 (R : Type) (idx : R) (op : Monoid.com_law idx) *)
-(*       (I : choiceType) (P : pred (mset0 : {mset I})) (E : mset0 -> R) : *)
-(*       \big[op/idx]_(x : mset0 | P x) E x = idx. *)
-(* Proof. *)
-(* by rewrite big1 //= => -[/= x xP]; suff: false by []; move: xP; rewrite inE. *)
-(* Qed. *)
-
-(* Lemma big_seq_mset (R : Type) (idx : R) (op : Monoid.com_law idx) *)
-(*       (I : choiceType) (r : seq I) (P : pred I) (E : I -> R) : *)
-(*       \big[op/idx]_(x : seq_mset r | P (val x)) E (val x) *)
-(*       = \big[op/idx]_(x <- undup r | P x) E x. *)
-(* Proof. *)
-(* rewrite -!(big_map val) /=; apply: eq_big_perm. *)
-(* rewrite uniq_perm_eq ?undup_uniq // /index_enum -enumT. *)
-(*   by rewrite map_inj_uniq ?enum_uniq; last exact: val_inj. *)
-(* move=> x /=; rewrite mem_undup; apply/mapP/idP => [[y _ ->]|] /=. *)
-(*   by rewrite -mem_mset_seq fsvalP. *)
-(* by rewrite -mem_mset_seq => x_in_mr; exists [`x_in_mr]; rewrite ?mem_enum. *)
-(* Qed. *)
-
-(* Lemma mroot_subproof p : *)
-(*   \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p *)
-(*   /\ (p != 0 -> forall x, *)
-(*   ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x). *)
-(* Proof. *)
-(* rewrite /mroot; case: dec_factor_theorem => /= s [q [-> rq]]. *)
-(* set rhs := (X in _ %| _ * X); set lhs := (X in X %| _); rewrite -/rhs -/lhs. *)
-(* suff -> // : lhs = rhs. *)
-(*   rewrite dvdp_mull ?dvdpp //; split=> //. *)
-(*   rewrite mulf_eq0 => /norP [q_neq0 rhs_neq0] x. *)
-(*   by rewrite mulpK // rq. *)
-(* rewrite [LHS](big_seq_mset _ _ predT (fun x => ('X - x%:P) ^+ seq_mset s x)) /=. *)
-(* rewrite -[RHS]big_undup_iterop_count /=; apply: eq_bigr => x _. *)
-(* by rewrite mset_seqE. *)
-(* Qed. *)
-
-(* Lemma prod_mroot_dvd p : *)
-(*   \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x)) %| p. *)
-(* Proof. by have []:= mroot_subproof p. Qed. *)
-
-(* Lemma noroot_div_mroot p : p != 0 -> forall x, *)
-(*   ~~ root (p %/ \prod_(x : mroot p) ('X - (val x)%:P) ^+ (mroot p (val x))) x. *)
-(* Proof. by have []:= mroot_subproof p. Qed. *)
-
-(* End DecField. *)
-
 Local Notation stable V f := (V%MS *m f%R <= V%MS)%MS.
 Section Stability.
 
@@ -700,12 +642,12 @@ rewrite !trmx_mul !map_mxM inv_unitary // trmxCK -(@inv_unitary  _ P) //.
 by rewrite mulmxA (triangularP _).
 Qed.
 
-Definition spectralmx n (A : 'M[C]_n) : 'M[C]_n := 
-  if @normal_spectral_subproof _ A is ReflectT P 
+Definition spectralmx n (A : 'M[C]_n) : 'M[C]_n :=
+  if @normal_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).1 else 1%:M.
 
-Definition spectral_diag n (A : 'M[C]_n) : 'rV_n := 
-  if @normal_spectral_subproof _ A is ReflectT P 
+Definition spectral_diag n (A : 'M[C]_n) : 'rV_n :=
+  if @normal_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).2 else 0.
 
 Theorem normal_spectralP {n} {A : 'M[C]_n}
@@ -746,7 +688,7 @@ Section mxOverAdd.
 Variables (S : predPredType C) (addS : addrPred S) (kS : keyed_pred addS).
 
 Lemma mxOver_constmx c : (m > 0)%N -> (n > 0)%N ->
-  (const_mx c \in mxOver kS) = (c \in kS).
+  (const_mx c \is a mxOver kS) = (c \in kS).
 Proof.
 move=> m_gt0 n_gt0; apply/mxOverP/idP; last first.
    by move=> cij i j; rewrite mxE.
@@ -770,8 +712,20 @@ Canonical mxOver_zmodPred S addS kS := ZmodPred (@mxOverNr S addS kS).
 
 End mxOver.
 
+Section mxOverRing.
+
+Variables (S : predPredType C) (ringS : subringPred S) (kS : keyed_pred ringS).
+
+Lemma mxOverMmx m n p :
+  {in mxOver kS & mxOver kS,
+      forall u : 'M[C]_(m, n), forall v : 'M[C]_(n, p),
+        u *m v \is a mxOver kS}.
+Admitted.
+
+End mxOverRing.
+
 Lemma mxOver_scalarmx n (S : predPredType C) c :
-  (n > 0)%N -> 0 \in S -> (c%:M \in @mxOver n n S) = (c \in S).
+  (n > 0)%N -> 0 \in S -> (c%:M \is a @mxOver n n S) = (c \in S).
 Proof.
 move=> n_gt0 S0; apply/mxOverP/idP; last first.
    by move=> cij i j; rewrite mxE; case: eqP => // _; rewrite mulr0n.
@@ -783,6 +737,53 @@ Lemma hermitian_normalmx n (A : 'M[C]_n) : A \is hermitian ->
 Proof.
 move=> Ahermi; apply/normalmxP.
 by rewrite {1 4}[A](sesquiP false conjC _ _) // !linearZ /= -!scalemxAl.
+Qed.
+
+Lemma similarR n (A B P : 'M[C]_n) : P \in unitmx ->
+  invmx P *m A *m P = B ->
+  A \is a mxOver Num.real -> B \is a mxOver Num.real ->
+  let Q a := P ^ (@Re _) + a *: P ^ (@Im _) in
+  exists2 a, (a \is Num.real) && (Q a \in unitmx) &
+  invmx (Q a) *m A *m Q a = B.
+Proof.
+move=> Punit /(congr1 (mulmx P)); rewrite !mulmxA mulmxV ?mul1mx //.
+set Pr := P ^ (@Re _); set Pi := P ^ (@Im _); move: Punit.
+have -> : P = Pr + 'i *: Pi by apply/matrixP=> i j; rewrite !mxE -Crect.
+have Pr_real : Pr \is a mxOver Num.real.
+  by apply/mxOverP=> i j; rewrite !mxE Creal_Re.
+have Pi_real : Pi \is a mxOver Num.real.
+  by apply/mxOverP=> i j; rewrite !mxE Creal_Im.
+move: Pr Pi Pr_real Pi_real => Pr Pi Pr_real Pi_real Punit eq_AP_PB Areal Breal.
+pose p := \det (Pr ^ polyC + 'X *: Pi ^ polyC).
+have p_neq0 : p != 0.
+  move: Punit; rewrite unitmxE unitfE /p; apply: contraNneq.
+  move=> /(congr1 (horner^~ 'i)); rewrite -/(horner_eval _ _) -det_map_mx.
+  rewrite map_mxD map_mxZ -!map_mx_comp !(eq_map_mx _ (fun=> hornerC _ _)).
+  by rewrite !map_mx_id /= /horner_eval hornerX horner0 => ->.
+have rs_uniq : uniq [seq (i%:R : C) | i <- iota 0 (size p)].
+  by rewrite map_inj_uniq ?iota_uniq //; apply: mulrIn; rewrite oner_eq0.
+have := contraNN (fun x => max_poly_roots p_neq0 x rs_uniq).
+rewrite size_map size_iota ltnn => /(_ isT) /allPn[a a_in rootNpa].
+have a_real : a \is Num.real by move: a_in => /mapP [i _ ->]; rewrite realn.
+move=> [: Pa_unit]; exists a.
+   rewrite a_real /=; abstract: Pa_unit.
+   move: rootNpa; rewrite unitmxE unitfE /root /p -/(horner_eval _ _).
+   rewrite -det_map_mx map_mxD map_mxZ -!map_mx_comp.
+   rewrite !(eq_map_mx _ (fun=> hornerC _ _)).
+   by rewrite !map_mx_id /= /horner_eval hornerX.
+apply: (can_inj (mulKmx Pa_unit)); rewrite !mulmxA mulmxV // mul1mx.
+rewrite !mulmxDl !mulmxDr -!scalemxAr -!scalemxAl in eq_AP_PB *.
+have /(congr1 (fun X => X ^ (@Im _))) := eq_AP_PB.
+have /(congr1 (fun X => X ^ (@Re _))) := eq_AP_PB.
+have Remx_rect : {in mxOver Num.real &, forall X Y,
+                      (X + 'i *: Y) ^ (@Re _) = X}.
+  move=> /= r s X Y Xreal Yreal; apply/matrixP=> i j; rewrite !mxE.
+  by rewrite Re_rect // (mxOverP _ _).
+have Immx_rect : {in mxOver Num.real &, forall X Y,
+                      (X + 'i *: Y) ^ (@Im _) = Y}.
+  move=> /= r s X Y Xreal Yreal; apply/matrixP=> i j; rewrite !mxE.
+  by rewrite Im_rect // (mxOverP _ _).
+by rewrite !(Remx_rect, Immx_rect) ?mxOverMmx //= => -> ->.
 Qed.
 
 Lemma hermitian_spectral n (A : 'M[C]_n) : A \is hermitian ->
