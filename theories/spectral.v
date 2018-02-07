@@ -75,7 +75,7 @@ Qed.
 
 End Stability.
 
-Section Schmidt.
+Section Spectral.
 
 Variable (C : numClosedFieldType).
 Set Default Proof Using "C".
@@ -86,16 +86,16 @@ Local Notation "M ^t*" := (map_mx conjC (M ^T)) (at level 30).
 Lemma trmxCK m n (M : 'M[C]_(m, n)) : M^t*^t* = M.
 Proof. by apply/matrixP=> i j; rewrite !mxE conjCK. Qed.
 
-Definition unitary m n := [qualify M : 'M[C]_(m, n) | M *m M ^t* == 1%:M].
-Fact unitary_key m n : pred_key (unitary m n). Proof. by []. Qed.
+Definition unitary {m n} := [qualify M : 'M[C]_(m, n) | M *m M ^t* == 1%:M].
+Fact unitary_key m n : pred_key (@unitary m n). Proof. by []. Qed.
 Canonical unitary_keyed m n := KeyedQualifier (unitary_key m n).
 
-Definition normalmx n := [qualify M : 'M[C]_n | M *m M ^t* == M ^t* *m M].
-Fact normalmx_key n : pred_key (normalmx n). Proof. by []. Qed.
+Definition normalmx {n} := [qualify M : 'M[C]_n | M *m M ^t* == M ^t* *m M].
+Fact normalmx_key n : pred_key (@normalmx n). Proof. by []. Qed.
 Canonical normalmx_keyed n := KeyedQualifier (normalmx_key n).
 
 Lemma normalmxP {n} {M: 'M[C]_n} :
-  reflect (M *m M ^t* = M ^t* *m M) (M \is normalmx _).
+  reflect (M *m M ^t* = M ^t* *m M) (M \is normalmx).
 Proof. exact: eqP. Qed.
 
 Local Notation "B ^_|_" := (ortho (@conjC _) 1%:M B) : ring_scope.
@@ -264,20 +264,18 @@ Lemma unsplitP m n (i : 'I_(m + n)) : unsplit_spec i (split i) (i < m)%N.
 Proof. by case: splitP=> j eq_j; constructor; apply/val_inj. Qed.
 
 Lemma unitaryP  {m} {n} {M : 'M[C]_(m, n)} :
-  reflect (M *m M^t* = 1%:M) (M \is unitary m n).
+  reflect (M *m M^t* = 1%:M) (M \is unitary).
 Proof. by apply: (iffP eqP). Qed.
 
-Lemma mxrank_unitary m n (M : 'M[C]_(m, n)) :
-  M \is unitary m n -> \rank M = m.
+Lemma mxrank_unitary m n (M : 'M[C]_(m, n)) : M \is unitary -> \rank M = m.
 Proof.
 rewrite qualifE => /eqP /(congr1 mxrank); rewrite mxrank1 => rkM.
 apply/eqP; rewrite eqn_leq rank_leq_row /= -[X in (X <= _)%N]rkM.
 by rewrite mxrankM_maxl.
 Qed.
 
-Lemma row_unitaryP {m} {n} {M : 'M[C]_(m, n)} :
-  reflect (forall i j, '[row i M, row j M] = (i == j)%:R)
-          (M \is unitary m n).
+Lemma row_unitaryP {m n} {M : 'M[C]_(m, n)} :
+  reflect (forall i j, '[row i M, row j M] = (i == j)%:R) (M \is unitary).
 Proof.
 apply: (iffP eqP).
   move=> Mo i j; have /matrixP /(_ i j) := Mo; rewrite !mxE => <-.
@@ -288,16 +286,16 @@ by apply: eq_bigr => /= k _; rewrite !mxE.
 Qed.
 
 Lemma mul_unitary m n p (A : 'M[C]_(m, n)) (B : 'M[C]_(n, p)) :
-  A \is unitary _ _ -> B \is unitary _ _ -> A *m B \is unitary _ _.
+  A \is unitary -> B \is unitary -> A *m B \is unitary.
 Proof.
 move=> Aunitary Bunitary; apply/unitaryP; rewrite trmx_mul map_mxM.
 by rewrite mulmxA -[A *m _ *m _]mulmxA !(unitaryP _, mulmx1).
 Qed.
 
-Lemma unitary_unit n (M : 'M[C]_n) : M \is unitary n n -> M \in unitmx.
+Lemma unitary_unit n (M : 'M[C]_n) : M \is unitary -> M \in unitmx.
 Proof. by move=> /unitaryP /mulmx1_unit []. Qed.
 
-Lemma inv_unitary n (M : 'M[C]_n) : M \is unitary n n -> invmx M = M^t*.
+Lemma inv_unitary n (M : 'M[C]_n) : M \is unitary -> invmx M = M^t*.
 Proof.
 move=> Munitary; apply: (@row_full_inj _ _ _ _ M).
   by rewrite row_full_unit unitary_unit.
@@ -324,7 +322,7 @@ Lemma col_rsubmx m n p (M : 'M[C]_(m, n + p)) i :
 Proof. by apply/colP=> j; rewrite !mxE; congr (M _ _); apply/val_inj. Qed.
 
 Lemma schmidt_subproof m n (A : 'M[C]_(m, n)) : (m <= n)%N ->
-  exists2 B : 'M_(m, n), B \is unitary m n & [forall i : 'I_m,
+  exists2 B : 'M_(m, n), B \is unitary & [forall i : 'I_m,
    (row i A <= (\sum_(k < m | (k <= i)%N) <<row k B>>))%MS
    && ('[row i A, row i B] >= 0) ].
 Proof.
@@ -399,7 +397,7 @@ Definition schmidt m n (A : 'M[C]_(m, n)) :=
   else A.
 
 Lemma schmidt_unitary m n (A : 'M[C]_(m, n)) : (m <= n)%N ->
-  schmidt A \is unitary m n.
+  schmidt A \is unitary.
 Proof. by rewrite /schmidt; case: eqP => // ?; case: sig2_eqW. Qed.
 Hint Resolve schmidt_unitary.
 
@@ -443,7 +441,7 @@ Definition schmidt_complete m n (V : 'M[C]_(m, n)) :=
   col_mx (schmidt (row_base V)) (schmidt (row_base V^_|_)).
 
 Lemma schmidt_complete_unitary m n (V : 'M[C]_(m, n)) :
-  schmidt_complete V \is unitary _ _.
+  schmidt_complete V \is unitary.
 Proof.
 apply/unitaryP; rewrite tr_col_mx map_row_mx mul_col_row.
 rewrite !(unitaryP _) ?schmidt_unitary ?rank_leq_col //.
@@ -519,11 +517,11 @@ Lemma triangularP {m n : nat} {A : 'M[C]_(m, n)} :
 Proof. by apply: (iffP 'forall_'forall_implyP) => /= /(_ _ _ _) /eqP. Qed.
 
 Lemma mulmxtVK (m1 m2 n : nat) (A : 'M[C]_(m1, n)) (B : 'M[C]_(n, m2)) :
-  B \is unitary _ _ ->  A *m B *m B^t* = A.
+  B \is unitary ->  A *m B *m B^t* = A.
 Proof. by move=> B_unitary; rewrite -mulmxA (unitaryP _) ?mulmx1. Qed.
 
 Lemma mulmxKtV (m1 m2 n : nat) (A : 'M[C]_(m1, n)) (B : 'M[C]_(m2, n)) :
-  B \is unitary _ _ -> m2 = n -> A *m B^t* *m B = A.
+  B \is unitary -> m2 = n -> A *m B^t* *m B = A.
 Proof.
 move=> B_unitary m2E; case: _ / (esym m2E) in B B_unitary *.
 by rewrite -inv_unitary // mulmxKV //; apply: unitary_unit.
@@ -531,7 +529,7 @@ Qed.
 
 Lemma cotrigonalization n (As : seq 'M[C]_n) :
   {in As &, forall A B, A *m B = B *m A} ->
-  exists2 P : 'M[C]_n, P \is unitary _ _ &
+  exists2 P : 'M[C]_n, P \is unitary &
     all (fun A => triangular (P *m A *m invmx P)) As.
 Proof.
 elim: n {-2}n (leqnn n) As => [|N IHN] n.
@@ -544,7 +542,7 @@ have /andP [n_gt0 n_small] : (n > 0)%N && (n - 1 <= N)%N.
   by rewrite n_eqSN /= subn1.
 move=> As As_comm;
 have [v vN0 /allP /= vP] := common_eigenvector n_gt0 As_comm.
-suff: exists2 P : 'M[C]_(\rank v + \rank v^_|_, n), P \is unitary _ _ &
+suff: exists2 P : 'M[C]_(\rank v + \rank v^_|_, n), P \is unitary &
   all (fun A => triangular (P *m A *m (P^t*))) As.
   rewrite add_rank_ortho // => -[P P_unitary].
   by rewrite -inv_unitary //; exists P.
@@ -607,8 +605,18 @@ case: splitP => //= j' j_eq.
   by apply/mapP; exists A; rewrite //= drrE.
 Qed.
 
+Theorem Schur n (A : 'M[C]_n) : (n > 0)%N ->
+  exists2 P : 'M[C]_n, P \is unitary &
+    [forall i : 'I_n, forall j : 'I_n, (i < j)%N ==>
+      ((P *m A *m invmx P) i j == 0)].
+Proof.
+case: n => [//|n] in A * => _; have [] := @cotrigonalization _ [:: A].
+  by move=> ? ? /=; rewrite !in_cons !orbF => /eqP-> /eqP->.
+by move=> P P_unitary /=; rewrite andbT=> A_trigo; exists P.
+Qed.
+
 Lemma cotrigonalization2 n (A B : 'M[C]_n) : A *m B = B *m A ->
-  exists2 P : 'M[C]_n, P \is unitary _ _ &
+  exists2 P : 'M[C]_n, P \is unitary &
     triangular (P *m A *m invmx P) && triangular (P *m B *m invmx P).
 Proof.
 move=> AB_comm; have [] := @cotrigonalization _ [:: A; B].
@@ -617,10 +625,10 @@ move=> P Punitary /allP /= PP; exists P => //.
 by rewrite !PP ?(mem_head, in_cons, orbT).
 Qed.
 
-Theorem normal_spectral_subproof {n} {A : 'M[C]_n} :
-  reflect (exists2 sp : 'M__ * 'rV_n,
-    sp.1 \is unitary _ _ & A = invmx sp.1 *m diag_mx sp.2 *m sp.1)
-          (A \is normalmx _).
+Theorem normal_spectral_subproof {n} {A : 'M[C]_n} : reflect
+  (exists2 sp : 'M_n * 'rV_n, sp.1 \is unitary &
+                              A = invmx sp.1 *m diag_mx sp.2 *m sp.1)
+  (A \is normalmx).
 Proof.
 apply: (iffP normalmxP); last first.
   move=> [[/= P D] P_unitary ->].
@@ -650,7 +658,7 @@ Definition spectral_diag n (A : 'M[C]_n) : 'rV_n :=
   if @normal_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).2 else 0.
 
-Lemma spectral_unitary n (A : 'M[C]_n) : spectralmx A \is unitary _ _.
+Lemma spectral_unitary n (A : 'M[C]_n) : spectralmx A \is unitary.
 Proof.
 rewrite /spectralmx; case: normal_spectral_subproof; last first.
   by move=> _; apply/unitaryP; rewrite trmx1 map_mx1 mulmx1.
@@ -662,7 +670,7 @@ Proof. exact/unitary_unit/spectral_unitary. Qed.
 
 Theorem normal_spectralP {n} {A : 'M[C]_n}
   (P := spectralmx A) (sp := spectral_diag A) :
-  reflect (A = invmx P *m diag_mx sp *m P) (A \is normalmx _).
+  reflect (A = invmx P *m diag_mx sp *m P) (A \is normalmx).
 Proof.
 rewrite /P /sp /spectralmx /spectral_diag.
 case: normal_spectral_subproof.
@@ -745,8 +753,7 @@ move=> n_gt0 S0; apply/mxOverP/idP; last first.
 by move=> /(_ (Ordinal n_gt0) (Ordinal n_gt0)); rewrite mxE eqxx.
 Qed.
 
-Lemma hermitian_normalmx n (A : 'M[C]_n) : A \is hermitian ->
-  A \is normalmx _.
+Lemma hermitian_normalmx n (A : 'M[C]_n) : A \is hermitian -> A \is normalmx.
 Proof.
 move=> Ahermi; apply/normalmxP.
 by rewrite {1 4}[A](sesquiP false conjC _ _) // !linearZ /= -!scalemxAl.
@@ -816,45 +823,5 @@ move=> eq_A_conjA; apply/mxOverP => i j; rewrite ord1 {i}.
 have /matrixP /(_ j j) := eq_A_conjA; rewrite !mxE eqxx !mulr1n.
 by move=> /esym /CrealP.
 Qed.
-
-(* Lemma schur n (A : 'M[C]_n) : (n > 0)%N -> *)
-(*   exists2 P : 'M[C]_n, P \is unitary n n &  *)
-(*     [forall i : 'I_n, forall j : 'I_n, (j < i)%N ==> ((P *m A *m invmx P) i j == 0)]. *)
-(* Proof. *)
-(* elim: n {-2}n (leqnn n) => [|N IHN] n leqn in A *. *)
-(*   by move: leqn; rewrite leqn0 => /eqP {1}->. *)
-(* move=> n_gt0; have /closed_rootP [a] : size (char_poly A) != 1%N. *)
-(*   by rewrite size_char_poly; case: (n) n_gt0. *)
-(* rewrite -eigenvalue_root_char => /eigenvalueP [v vA_eq v_neq0]. *)
-(* have rAa := rank_leq_col (eigenspace A a). *)
-(* have := rAa; rewrite leq_eqVlt => /predU1P [/esym rAn|rk_small]. *)
-(*   have /(_ rAa) Sunitary := schmidt_unitary (row_base (eigenspace A a)). *)
-(*   exists (castmx (esym rAn,erefl) (schmidt (row_base (eigenspace A a)))). *)
-(*     by move: (schmidt _) Sunitary; case: _ / rAn => ?; apply. *)
-(*   apply/'forall_'forall_implyP=> i j ltij. *)
-(*   rewrite (eigenspaceP (_ : (_ (schmidt _) <= _ a)%MS)); last first. *)
-(*     by rewrite eqmx_cast eqmx_schmidt_free ?row_base_free // eq_row_base. *)
-(*   rewrite -?scalemxAl mulmxV ?mxE -?val_eqE ?gtn_eqF ?mulr0 //=. *)
-(*   by apply: unitary_unit; move: (schmidt _) Sunitary; case: _ / rAn => ?; apply. *)
-(* have := subnKC rAa. *)
-(* case: _ /. *)
-
-
-(*   set D := (_ *m _ *m _). *)
-(*   suff -> : D = a%:M by rewrite mxE -val_eqE gtn_eqF. *)
-
-(*   apply/row_matrixP => k; rewrite !rowE. *)
-
-
-
-(* have := rank_leq_row (row_base (eigenspace A a) *)
-
-(* move=> /forallP /= BP. *)
-
-
-End Schmidt.
-
-
-Section Spectral.
 
 End Spectral.
