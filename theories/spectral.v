@@ -626,8 +626,9 @@ by rewrite !PP ?(mem_head, in_cons, orbT).
 Qed.
 
 Theorem normal_spectral_subproof {n} {A : 'M[C]_n} : reflect
-  (exists2 sp : 'M_n * 'rV_n, sp.1 \is unitary &
-                              A = invmx sp.1 *m diag_mx sp.2 *m sp.1)
+  (exists2 sp : 'M_n * 'rV_n,
+                sp.1 \is unitary &
+                A = invmx sp.1 *m diag_mx sp.2 *m sp.1)
   (A \is normalmx).
 Proof.
 apply: (iffP normalmxP); last first.
