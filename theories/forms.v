@@ -201,19 +201,19 @@ Section GenericProperties.
 Variables (U U' : lmodType R) (V : zmodType) (s : R -> V -> V) (s' : R -> V -> V).
 Variable f : {bilinear U -> U' -> V | s & s'}.
 
-Lemma linear0r z : f z 0 = 0. Proof. by rewrite raddf0. Qed.
-Lemma linearNr z : {morph f z : x / - x}. Proof. exact: raddfN. Qed.
-Lemma linearDr z : {morph f z : x y / x + y}. Proof. exact: raddfD. Qed.
-Lemma linearBr z : {morph f z : x y / x - y}. Proof. exact: raddfB. Qed.
-Lemma linearMnr z n : {morph f z : x / x *+ n}. Proof. exact: raddfMn. Qed.
-Lemma linearMNnr z n : {morph f z : x / x *- n}. Proof. exact: raddfMNn. Qed.
-Lemma linear_sumr z I r (P : pred I) E :
-  f z (\sum_(i <- r | P i) E i) = \sum_(i <- r | P i) f z (E i).
-Proof. exact: raddf_sum. Qed.
+(* Lemma linear0r z : f z 0 = 0. Proof. by rewrite linear0. Qed. *)
+(* Lemma linearNr z : {morph f z : x / - x}. Proof. exact: raddfN. Qed. *)
+(* Lemma linearDr z : {morph f z : x y / x + y}. Proof. exact: raddfD. Qed. *)
+(* Lemma linearBr z : {morph f z : x y / x - y}. Proof. exact: raddfB. Qed. *)
+(* Lemma linearMnr z n : {morph f z : x / x *+ n}. Proof. exact: raddfMn. Qed. *)
+(* Lemma linearMNnr z n : {morph f z : x / x *- n}. Proof. exact: raddfMNn. Qed. *)
+(* Lemma linear_sumr z I r (P : pred I) E : *)
+(*   f z (\sum_(i <- r | P i) E i) = \sum_(i <- r | P i) f z (E i). *)
+(* Proof. exact: raddf_sum. Qed. *)
 
-Lemma linearZr_LR z : scalable_for s' (f z). Proof. exact: linearZ_LR. Qed.
-Lemma linearPr z a : {morph f z : u v / a *: u + v >-> s' a u + v}.
-Proof. exact: linearP. Qed.
+(* Lemma linearZr_LR z : scalable_for s' (f z). Proof. exact: linearZ_LR. Qed. *)
+(* Lemma linearPr z a : {morph f z : u v / a *: u + v >-> s' a u + v}. *)
+(* Proof. exact: linearP. Qed. *)
 
 Lemma applyrE x : applyr f x =1 f^~ x. Proof. by []. Qed.
 
@@ -252,32 +252,138 @@ End BidirectionalLinearZ.
 
 End BilinearTheory.
 
-Canonical rev_mulmx (R : ringType) m n p := @RevOp _ _ _ (@mulmxr_head R m n p tt)
+Canonical rev_mulmx (R : ringType) m n p := @RevOp _ _ _ mulmxr
   (@mulmx R m n p) (fun _ _ => erefl).
-
 Canonical mulmx_bilinear (R : comRingType) m n p := [bilinear of @mulmx R m n p].
 
-(* Section classfun. *)
-(* Import mathcomp.character.classfun. *)
+Module Hermitian.
 
-(* Canonical rev_cfdot (gT : finGroupType) (B : {set gT}) :=  *)
-(*   @RevOp _ _ _ (@cfdotr_head gT B tt) *)
-(*   (@cfdot gT B) (fun _ _ => erefl). *)
+Section ClassDef.
 
-(* Section Cfdot. *)
-(* Variables (gT : finGroupType) (G : {group gT}). *)
-(* Lemma cfdot_is_linear xi : linear_for (@conjC _ \; *%R) (cfdot xi : 'CF(G) -> algC^o). *)
-(* Proof. *)
-(* move=> /= a phi psi; rewrite cfdotC -cfdotrE linearD linearZ /=. *)
-(* by rewrite !['[_, xi]]cfdotC rmorphD rmorphM !conjCK. *)
-(* Qed. *)
-(* Canonical cfdot_additive xi := Additive (cfdot_is_linear xi). *)
-(* Canonical cfdot_linear xi := Linear (cfdot_is_linear xi). *)
-(* End Cfdot. *)
+Variables (R : ringType) (U : lmodType R) (eps : bool) (theta : {rmorphism R -> R}).
+Implicit Type phUUR : phant (U -> U -> R).
 
-(* Canonical cfdot_bilinear (gT : finGroupType) (B : {group gT}) := *)
-(*   [bilinear of @cfdot gT B]. *)
-(* End classfun. *)
+Local Coercion GRing.Scale.op : GRing.Scale.law >-> Funclass.
+Record mixin_of (f : U -> U -> R) := Mixin {
+  _ : involutive theta;
+  _ : forall x y : U, f x y = (-1) ^+ eps * theta (f y x);
+}.
+
+Record class_of (f : U -> U -> R) : Prop := Class {
+  base : Bilinear.class_of ( *%R) (theta \; *%R) f;
+  mixin : mixin_of f
+}.
+
+Structure map phUUR := Pack {apply; _ : class_of apply}.
+Local Coercion apply : map >-> Funclass.
+
+Variables (phUR : phant (U -> R)) (phUUR : phant (U -> U -> R)) (cF : map phUUR).
+
+Definition class := let: Pack _ c as cF' := cF return class_of cF' in c.
+
+Canonical additiver (u : U) := GRing.Additive.Pack phUR (base class u).
+Canonical linearr (u : U) := GRing.Linear.Pack phUR (base class u).
+Canonical additivel (u' : U) := @GRing.Additive.Pack _ _ phUR (applyr cF u') (Bilinear.basel (base class) u').
+Canonical linearl (u' : U) := @GRing.Linear.Pack _ _ _ _ phUR (applyr cF u') (Bilinear.basel (base class) u').
+Canonical bilinear := @Bilinear.Pack _ _ _ _ _ _ phUUR cF (base class).
+
+Definition pack (phUUR : phant (U -> U -> R)) f :=
+  
+
+  fun (bFl : U' -> GRing.Linear.map s phUV) flc of (forall u', revf u' = bFl u') &
+      (forall u', phant_id (GRing.Linear.class (bFl u')) (flc u')) =>
+  fun (bFr : U -> GRing.Linear.map s' phU'V) frc of (forall u, g u = bFr u) &
+      (forall u, phant_id (GRing.Linear.class (bFr u)) (frc u)) =>
+  @Pack (Phant _) f (Class b m).
+
+
+(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
+(* Notation mapUV := (map (Phant (U -> U' -> V))). *)
+(* Definition map_class := mapUV. *)
+(* Definition map_at (a : R) := mapUV. *)
+(* Structure map_for a s_a := MapFor {map_for_map : mapUV; _ : s a = s_a}. *)
+(* Definition unify_map_at a (f : map_at a) := MapFor f (erefl (s a)). *)
+(* Structure wrapped := Wrap {unwrap : mapUV}. *)
+(* Definition wrap (f : map_class) := Wrap f. *)
+
+End ClassDef.
+
+Module Exports.
+Delimit Scope linear_ring_scope with linR.
+Notation bilinear_for s s' f := (axiom f (erefl s) (erefl s')).
+Notation bilinear f := (bilinear_for *:%R *:%R f).
+Notation biscalar f := (bilinear_for *%R *%R f).
+Notation bilmorphism_for s s' f := (class_of s s' f).
+Notation bilmorphism f := (bilmorphism_for *:%R *:%R f).
+Coercion class_of_axiom : axiom >-> bilmorphism_for.
+Coercion baser : bilmorphism_for >-> Funclass.
+Coercion apply : map >-> Funclass.
+Notation "{ 'bilinear' fUV | s & s' }" := (map s s' (Phant fUV))
+  (at level 0, format "{ 'bilinear'  fUV  |  s  &  s' }") : ring_scope.
+Notation "{ 'bilinear' fUV | s }" := (map s.1 s.2 (Phant fUV))
+  (at level 0, format "{ 'bilinear'  fUV  |  s }") : ring_scope.
+Notation "{ 'bilinear' fUV }" := {bilinear fUV | *:%R & *:%R}
+  (at level 0, format "{ 'bilinear'  fUV }") : ring_scope.
+Notation "{ 'biscalar' U }" := {bilinear U -> U -> _ | *%R & *%R}
+  (at level 0, format "{ 'biscalar'  U }") : ring_scope.
+Notation "[ 'bilinear' 'of' f 'as' g ]" := 
+  (@pack  _ _ _ _ _ _ _ _ _ _ f g erefl _ _ 
+         (fun=> erefl) (fun=> idfun) _ _ (fun=> erefl) (fun=> idfun)).
+Notation "[ 'bilinear' 'of' f ]" :=  [bilinear of f as f]
+  (at level 0, format "[ 'bilinear'  'of'  f ]") : form_scope.
+Coercion additiver : map >-> GRing.Additive.map.
+Coercion linearr : map >->  GRing.Linear.map.
+Canonical additiver.
+Canonical linearr.
+Canonical additivel.
+Canonical linearl.
+Notation applyr := (@applyr_head _ _ _ _ tt).
+(* Canonical additive. *)
+(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
+(* Coercion map_for_map : map_for >-> map. *)
+(* Coercion unify_map_at : map_at >-> map_for. *)
+(* Canonical unify_map_at. *)
+(* Coercion unwrap : wrapped >-> map. *)
+(* Coercion wrap : map_class >-> wrapped. *)
+(* Canonical wrap. *)
+End Exports.
+
+End Bilinear.
+Include Bilinear.Exports.
+
+
+Section classfun.
+From mathcomp Require Import classfun.
+
+Canonical rev_cfdot (gT : finGroupType) (B : {set gT}) :=
+  @RevOp _ _ _ (@cfdotr_head gT B tt)
+  (@cfdot gT B) (fun _ _ => erefl).
+
+Section Cfdot.
+Variables (gT : finGroupType) (G : {group gT}).
+Lemma cfdot_is_linear xi : linear_for (@conjC _ \; *%R) (cfdot xi : 'CF(G) -> algC^o).
+Proof.
+move=> /= a phi psi; rewrite cfdotC -cfdotrE linearD linearZ /=.
+by rewrite !['[_, xi]]cfdotC rmorphD rmorphM !conjCK.
+Qed.
+Canonical cfdot_additive xi := Additive (cfdot_is_linear xi).
+Canonical cfdot_linear xi := Linear (cfdot_is_linear xi).
+End Cfdot.
+
+Canonical cfdot_bilinear (gT : finGroupType) (B : {group gT}) :=
+  [bilinear of @cfdot gT B].
+
+Section Cfdot_ex.
+Variables (gT : finGroupType) (G : {group gT}).
+
+Lemma cfdot0l P (xi xi1 xi2 : 'CF(G)) : P '[ xi1 + xi2, xi].
+Proof. rewrite linearDl /=. Abort.
+
+End Cfdot_ex.
+
+End classfun.
+
+
 
 Section BilinearForms.
 
@@ -381,7 +487,6 @@ Qed.
 
 Lemma form_eq0C u v : ('[u, v] == 0) = ('[v, u] == 0).
 Proof. by rewrite formC mulf_eq0 signr_eq0 /= fmorph_eq0. Qed.
-
 
 
 Definition ortho m (B : 'M_(m,n)) := (kermx (M *m (B ^t theta))).
