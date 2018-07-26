@@ -1,7 +1,7 @@
 From mathcomp
 Require Import ssreflect ssrfun ssrbool eqtype ssrnat seq div choice fintype.
 From mathcomp
-Require Import bigop ssralg finset fingroup zmodp poly ssrnum.
+Require Import tuple bigop ssralg finset fingroup zmodp poly ssrnum.
 From mathcomp
 Require Import matrix mxalgebra vector falgebra ssrnum algC algnum.
 From mathcomp
@@ -28,47 +28,10 @@ Reserved Notation "u '``_' i"
 Reserved Notation "A ^_|_"    (at level 8, format "A ^_|_").
 Reserved Notation "A _|_ B" (at level 69, format "A  _|_  B").
 
-Notation "u '``_' i" := (u (GRing.zero (Zp_zmodType O)) i) : ring_scope.
-Notation "''e_' i" := (delta_mx 0 i)
- (format "''e_' i", at level 3) : ring_scope.
-
-Lemma mxdirect_delta (F : fieldType) (T : finType) (n : nat) (P : pred T) f :
-  {in P & , injective f} ->
-  mxdirect (\sum_(i | P i) <<'e_(f i) : 'rV[F]_n>>)%MS.
-Proof.
-pose fP := image f P => Uf; have UfP: uniq fP by apply/dinjectiveP.
-suffices /mxdirectP: mxdirect (\sum_i <<'e_i : 'rV[F]_n>>).
-  rewrite /= !(bigID [mem fP] predT) -!big_uniq //= !big_map !big_filter.
-  by move/mxdirectP; rewrite mxdirect_addsE => /andP[].
-apply/mxdirectP=> /=; transitivity (mxrank (1%:M : 'M[F]_n)).
-  apply/eqmx_rank; rewrite submx1 mx1_sum_delta summx_sub_sums // => i _.
-  by rewrite -(mul_delta_mx (0 : 'I_1)) genmxE submxMl.
-rewrite mxrank1 -[LHS]card_ord -sum1_card.
-by apply/eq_bigr=> i _; rewrite /= mxrank_gen mxrank_delta.
-Qed.
-
-Lemma row_mx_eq0 (M : zmodType) (m n1 n2 : nat)
- (A1 : 'M[M]_(m, n1)) (A2 : 'M_(m, n2)):
- (row_mx A1 A2 == 0) = (A1 == 0) && (A2 == 0).
-Proof.
-apply/eqP/andP; last by case=> /eqP-> /eqP->; rewrite row_mx0.
-by rewrite -row_mx0 => /eq_row_mx [-> ->].
-Qed.
-
-Lemma col_mx_eq0 (M : zmodType) (m1 m2 n : nat)
- (A1 : 'M[M]_(m1, n)) (A2 : 'M_(m2, n)):
- (col_mx A1 A2 == 0) = (A1 == 0) && (A2 == 0).
-Proof.
-by rewrite -![_ == 0](inj_eq (@trmx_inj _ _ _)) !trmx0 tr_col_mx row_mx_eq0.
-Qed.
+Section extramx.
 
 Local Notation "M ^ phi" := (map_mx phi M).
 Local Notation "M ^t phi" := (map_mx phi (M ^T)) (phi at level 30, at level 30).
-
-Structure revop X Y Z (f : Y -> X -> Z) := RevOp {
-  fun_of_revop :> X -> Y -> Z;
-  _ : forall x, f x =1 fun_of_revop^~ x
-}.
 
 Lemma map_mx_comp (R S T : ringType) m n (M : 'M[R]_(m,n))
       (f : R -> S) (g : S -> T) : M ^ (g \o f) = (M ^ f) ^ g.
@@ -84,6 +47,21 @@ Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
 Lemma eq_map_mx_id (R : ringType) m n (M : 'M[R]_(m,n)) (f : R -> R) :
   f =1 id -> M ^ f = M.
 Proof. by move=> /eq_map_mx->; rewrite map_mx_id. Qed.
+
+End extramx.
+
+(* TODO: to vector *)
+Lemma dim_regular (F : fieldType) : \dim {:regular_vectType F} = 1%N.
+Proof. by rewrite /dimv Vector.InternalTheory.mx2vsK mxrank1. Qed.
+
+Structure revop X Y Z (f : Y -> X -> Z) := RevOp {
+  fun_of_revop :> X -> Y -> Z;
+  _ : forall x, f x =1 fun_of_revop^~ x
+}.
+
+(* Fact applyr_key : unit. Proof. exact. Qed. *)
+Definition applyr_head U U' V t (f : U -> U' -> V) u v := let: tt := t in f v u.
+Notation applyr := (@applyr_head _ _ _ tt).
 
 Module Bilinear.
 
@@ -117,16 +95,12 @@ Definition class (phUU'V : _)  (cF : map phUU'V) :=
 
 Canonical additiver phU'V phUU'V (u : U) cF := GRing.Additive.Pack phU'V
   (baser (@class phUU'V cF) u).
-Canonical linearr phU'V  phUU'V (u : U) cF := GRing.Linear.Pack phU'V 
+Canonical linearr phU'V  phUU'V (u : U) cF := GRing.Linear.Pack phU'V
   (baser (@class phUU'V cF) u).
 
-(* Fact applyr_key : unit. Proof. exact. Qed. *)
-Definition applyr_head t (f : U -> U' -> V) u v := let: tt := t in f v u.
-Notation applyr := (@applyr_head tt).
-
-Canonical additivel phUV phUU'V (u' : U') (cF : map _) := 
+Canonical additivel phUV phUU'V (u' : U') (cF : map _) :=
   @GRing.Additive.Pack _ _ phUV (applyr cF u') (basel (@class phUU'V cF) u').
-Canonical linearl phUV phUU'V  (u' : U') (cF : map _) := 
+Canonical linearl phUV phUU'V  (u' : U') (cF : map _) :=
   @GRing.Linear.Pack _ _ _ _ phUV (applyr cF u') (basel (@class phUU'V cF) u').
 
 Definition pack (phUV : phant (U -> V)) (phU'V : phant (U' -> V))
@@ -137,20 +111,9 @@ Definition pack (phUV : phant (U -> V)) (phU'V : phant (U' -> V))
       (forall u, phant_id (GRing.Linear.class (bFr u)) (frc u)) =>
   @Pack (Phant _) f (Class flc frc).
 
-
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Notation mapUV := (map (Phant (U -> U' -> V))). *)
-(* Definition map_class := mapUV. *)
-(* Definition map_at (a : R) := mapUV. *)
-(* Structure map_for a s_a := MapFor {map_for_map : mapUV; _ : s a = s_a}. *)
-(* Definition unify_map_at a (f : map_at a) := MapFor f (erefl (s a)). *)
-(* Structure wrapped := Wrap {unwrap : mapUV}. *)
-(* Definition wrap (f : map_class) := Wrap f. *)
-
 End ClassDef.
 
 Module Exports.
-Delimit Scope linear_ring_scope with linR.
 Notation bilinear_for s s' f := (axiom f (erefl s) (erefl s')).
 Notation bilinear f := (bilinear_for *:%R *:%R f).
 Notation biscalar f := (bilinear_for *%R *%R f).
@@ -167,26 +130,16 @@ Notation "{ 'bilinear' fUV }" := {bilinear fUV | *:%R & *:%R}
   (at level 0, format "{ 'bilinear'  fUV }") : ring_scope.
 Notation "{ 'biscalar' U }" := {bilinear U -> U -> _ | *%R & *%R}
   (at level 0, format "{ 'biscalar'  U }") : ring_scope.
-Notation "[ 'bilinear' 'of' f 'as' g ]" := 
-  (@pack  _ _ _ _ _ _ _ _ _ _ f g erefl _ _ 
+Notation "[ 'bilinear' 'of' f 'as' g ]" :=
+  (@pack  _ _ _ _ _ _ _ _ _ _ f g erefl _ _
          (fun=> erefl) (fun=> idfun) _ _ (fun=> erefl) (fun=> idfun)).
 Notation "[ 'bilinear' 'of' f ]" :=  [bilinear of f as f]
   (at level 0, format "[ 'bilinear'  'of'  f ]") : form_scope.
-Coercion additiver : map >-> GRing.Additive.map.
-Coercion linearr : map >->  GRing.Linear.map.
 Canonical additiver.
 Canonical linearr.
 Canonical additivel.
 Canonical linearl.
-Notation applyr := (@applyr_head _ _ _ _ tt).
-(* Canonical additive. *)
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Coercion map_for_map : map_for >-> map. *)
-(* Coercion unify_map_at : map_at >-> map_for. *)
-(* Canonical unify_map_at. *)
-(* Coercion unwrap : wrapped >-> map. *)
-(* Coercion wrap : map_class >-> wrapped. *)
-(* Canonical wrap. *)
+Notation biapplyr := (@applyr_head _ _ _ _ tt).
 End Exports.
 
 End Bilinear.
@@ -201,19 +154,19 @@ Section GenericProperties.
 Variables (U U' : lmodType R) (V : zmodType) (s : R -> V -> V) (s' : R -> V -> V).
 Variable f : {bilinear U -> U' -> V | s & s'}.
 
-(* Lemma linear0r z : f z 0 = 0. Proof. by rewrite linear0. Qed. *)
-(* Lemma linearNr z : {morph f z : x / - x}. Proof. exact: raddfN. Qed. *)
-(* Lemma linearDr z : {morph f z : x y / x + y}. Proof. exact: raddfD. Qed. *)
-(* Lemma linearBr z : {morph f z : x y / x - y}. Proof. exact: raddfB. Qed. *)
-(* Lemma linearMnr z n : {morph f z : x / x *+ n}. Proof. exact: raddfMn. Qed. *)
-(* Lemma linearMNnr z n : {morph f z : x / x *- n}. Proof. exact: raddfMNn. Qed. *)
-(* Lemma linear_sumr z I r (P : pred I) E : *)
-(*   f z (\sum_(i <- r | P i) E i) = \sum_(i <- r | P i) f z (E i). *)
-(* Proof. exact: raddf_sum. Qed. *)
+Lemma linear0r z : f z 0 = 0. Proof. by rewrite linear0. Qed.
+Lemma linearNr z : {morph f z : x / - x}. Proof. exact: raddfN. Qed.
+Lemma linearDr z : {morph f z : x y / x + y}. Proof. exact: raddfD. Qed.
+Lemma linearBr z : {morph f z : x y / x - y}. Proof. exact: raddfB. Qed.
+Lemma linearMnr z n : {morph f z : x / x *+ n}. Proof. exact: raddfMn. Qed.
+Lemma linearMNnr z n : {morph f z : x / x *- n}. Proof. exact: raddfMNn. Qed.
+Lemma linear_sumr z I r (P : pred I) E :
+  f z (\sum_(i <- r | P i) E i) = \sum_(i <- r | P i) f z (E i).
+Proof. exact: raddf_sum. Qed.
 
-(* Lemma linearZr_LR z : scalable_for s' (f z). Proof. exact: linearZ_LR. Qed. *)
-(* Lemma linearPr z a : {morph f z : u v / a *: u + v >-> s' a u + v}. *)
-(* Proof. exact: linearP. Qed. *)
+Lemma linearZr_LR z : scalable_for s' (f z). Proof. exact: linearZ_LR. Qed.
+Lemma linearPr z a : {morph f z : u v / a *: u + v >-> s' a u + v}.
+Proof. exact: linearP. Qed.
 
 Lemma applyrE x : applyr f x =1 f^~ x. Proof. by []. Qed.
 
@@ -239,16 +192,16 @@ Proof. by move=> ??; rewrite -applyrE linearP. Qed.
 
 End GenericProperties.
 
-Section BidirectionalLinearZ.
+(* Section BidirectionalLinearZ. *)
 
-Variables (U : lmodType R) (V : zmodType) (s : R -> V -> V).
-Variables (S : ringType) (h : S -> V -> V) (h_law : GRing.Scale.law h).
+(* Variables (U : lmodType R) (V : zmodType) (s : R -> V -> V). *)
+(* Variables (S : ringType) (h : S -> V -> V) (h_law : GRing.Scale.law h). *)
 
-(* Lemma linearZr z c a (h_c := GRing.Scale.op h_law c) (f : GRing.Linear.map_for U s a h_c) u : *)
+(* Lemma linearZ l z c a (h_c := GRing.Scale.op h_law c) (f : GRing.Linear.map_for U s a h_c) u : *)
 (*   f z (a *: u) = h_c (GRing.Linear.wrap (f z) u). *)
 (* Proof. by rewrite linearZ_LR; case: f => f /= ->. Qed. *)
 
-End BidirectionalLinearZ.
+(* End BidirectionalLinearZ. *)
 
 End BilinearTheory.
 
@@ -261,7 +214,7 @@ Module Hermitian.
 Section ClassDef.
 
 Variables (R : ringType) (U : lmodType R) (eps : bool) (theta : {rmorphism R -> R}).
-Implicit Type phUUR : phant (U -> U -> R).
+Implicit Types phU : phant U.
 
 Local Coercion GRing.Scale.op : GRing.Scale.law >-> Funclass.
 Record mixin_of (f : U -> U -> R) := Mixin {
@@ -274,85 +227,474 @@ Record class_of (f : U -> U -> R) : Prop := Class {
   mixin : mixin_of f
 }.
 
-Structure map phUUR := Pack {apply; _ : class_of apply}.
+Structure map phU := Pack {apply; _ : class_of apply}.
 Local Coercion apply : map >-> Funclass.
 
-Variables (phUR : phant (U -> R)) (phUUR : phant (U -> U -> R)) (cF : map phUUR).
+Variables (phU : phant U) (cF : map phU).
 
 Definition class := let: Pack _ c as cF' := cF return class_of cF' in c.
 
-Canonical additiver (u : U) := GRing.Additive.Pack phUR (base class u).
-Canonical linearr (u : U) := GRing.Linear.Pack phUR (base class u).
-Canonical additivel (u' : U) := @GRing.Additive.Pack _ _ phUR (applyr cF u') (Bilinear.basel (base class) u').
-Canonical linearl (u' : U) := @GRing.Linear.Pack _ _ _ _ phUR (applyr cF u') (Bilinear.basel (base class) u').
-Canonical bilinear := @Bilinear.Pack _ _ _ _ _ _ phUUR cF (base class).
+Canonical additiver (u : U) := Additive (base class u).
+Canonical linearr (u : U) := Linear (base class u).
+Canonical additivel (u' : U) := @GRing.Additive.Pack _ _ (Phant (U -> R))
+  (applyr cF u') (Bilinear.basel (base class) u').
+Canonical linearl (u' : U) := @GRing.Linear.Pack _ _ _ _ (Phant (U -> R))
+  (applyr cF u') (Bilinear.basel (base class) u').
+Canonical bilinear := @Bilinear.Pack _ _ _ _ _ _ (Phant (U -> U -> R)) cF (base class).
 
-Definition pack (phUUR : phant (U -> U -> R)) f :=
-  
+Definition clone (f g : U -> U -> R) :=
+ fun fM of phant_id g (apply cF) & phant_id fM class => @Pack phU f fM.
 
-  fun (bFl : U' -> GRing.Linear.map s phUV) flc of (forall u', revf u' = bFl u') &
-      (forall u', phant_id (GRing.Linear.class (bFl u')) (flc u')) =>
-  fun (bFr : U -> GRing.Linear.map s' phU'V) frc of (forall u, g u = bFr u) &
-      (forall u, phant_id (GRing.Linear.class (bFr u)) (frc u)) =>
-  @Pack (Phant _) f (Class b m).
-
-
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Notation mapUV := (map (Phant (U -> U' -> V))). *)
-(* Definition map_class := mapUV. *)
-(* Definition map_at (a : R) := mapUV. *)
-(* Structure map_for a s_a := MapFor {map_for_map : mapUV; _ : s a = s_a}. *)
-(* Definition unify_map_at a (f : map_at a) := MapFor f (erefl (s a)). *)
-(* Structure wrapped := Wrap {unwrap : mapUV}. *)
-(* Definition wrap (f : map_class) := Wrap f. *)
+Definition pack f fM :=
+  fun b s s' (phUUR : phant (U -> U -> R)) (bF : Bilinear.map s s' phUUR)
+      of phant_id (Bilinear.class bF) b =>
+  @Pack phU f (Class b fM).
 
 End ClassDef.
 
 Module Exports.
-Delimit Scope linear_ring_scope with linR.
-Notation bilinear_for s s' f := (axiom f (erefl s) (erefl s')).
-Notation bilinear f := (bilinear_for *:%R *:%R f).
-Notation biscalar f := (bilinear_for *%R *%R f).
-Notation bilmorphism_for s s' f := (class_of s s' f).
-Notation bilmorphism f := (bilmorphism_for *:%R *:%R f).
-Coercion class_of_axiom : axiom >-> bilmorphism_for.
-Coercion baser : bilmorphism_for >-> Funclass.
+Notation "{ 'hermitian' U 'for' eps & theta }" := (map eps theta (Phant U))
+  (at level 0, format "{ 'hermitian'  U  'for'  eps  &  theta }") : ring_scope.
+Coercion base : class_of >-> bilmorphism_for.
 Coercion apply : map >-> Funclass.
-Notation "{ 'bilinear' fUV | s & s' }" := (map s s' (Phant fUV))
-  (at level 0, format "{ 'bilinear'  fUV  |  s  &  s' }") : ring_scope.
-Notation "{ 'bilinear' fUV | s }" := (map s.1 s.2 (Phant fUV))
-  (at level 0, format "{ 'bilinear'  fUV  |  s }") : ring_scope.
-Notation "{ 'bilinear' fUV }" := {bilinear fUV | *:%R & *:%R}
-  (at level 0, format "{ 'bilinear'  fUV }") : ring_scope.
-Notation "{ 'biscalar' U }" := {bilinear U -> U -> _ | *%R & *%R}
-  (at level 0, format "{ 'biscalar'  U }") : ring_scope.
-Notation "[ 'bilinear' 'of' f 'as' g ]" := 
-  (@pack  _ _ _ _ _ _ _ _ _ _ f g erefl _ _ 
-         (fun=> erefl) (fun=> idfun) _ _ (fun=> erefl) (fun=> idfun)).
-Notation "[ 'bilinear' 'of' f ]" :=  [bilinear of f as f]
-  (at level 0, format "[ 'bilinear'  'of'  f ]") : form_scope.
-Coercion additiver : map >-> GRing.Additive.map.
-Coercion linearr : map >->  GRing.Linear.map.
+Notation "[ 'hermitian' 'of' f 'as' g ]" := (@clone _ _ _ _ _ _ f g _ idfun idfun)
+  (at level 0, format "[ 'hermitian'  'of'  f  'as'  g ]") : form_scope.
+Notation "[ 'hermitian' 'of' f ]" := (@clone _ _ _ _ _ _ f f _ idfun idfun)
+  (at level 0, format "[ 'hermitian'  'of'  f ]") : form_scope.
+Notation hermitian_for := Hermitian.mixin_of.
+Notation Hermitian fM := (pack (Phant _) fM idfun).
 Canonical additiver.
 Canonical linearr.
 Canonical additivel.
 Canonical linearl.
-Notation applyr := (@applyr_head _ _ _ _ tt).
-(* Canonical additive. *)
-(* (* Support for right-to-left rewriting with the generic linearZ rule. *) *)
-(* Coercion map_for_map : map_for >-> map. *)
-(* Coercion unify_map_at : map_at >-> map_for. *)
-(* Canonical unify_map_at. *)
-(* Coercion unwrap : wrapped >-> map. *)
-(* Coercion wrap : map_class >-> wrapped. *)
-(* Canonical wrap. *)
+Canonical bilinear.
+Notation hermapplyr := (@applyr_head _ _ _ _ tt).
 End Exports.
 
-End Bilinear.
-Include Bilinear.Exports.
+End Hermitian.
+Include Hermitian.Exports.
+
+Module Dot.
+
+Section ClassDef.
+
+Variables (R : numDomainType) (U : lmodType R) (theta : {rmorphism R -> R}).
+Implicit Types phU : phant U.
+
+Local Coercion GRing.Scale.op : GRing.Scale.law >-> Funclass.
+Definition axiom (f : U -> U -> R) := forall u, u != 0 -> 0 < f u u.
+
+Record class_of (f : U -> U -> R) : Prop := Class {
+  base : Hermitian.class_of false theta f;
+  mixin : axiom f
+}.
+
+Structure map phU := Pack {apply; _ : class_of apply}.
+Local Coercion apply : map >-> Funclass.
+
+Variables (phU : phant U) (cF : map phU).
+
+Definition class := let: Pack _ c as cF' := cF return class_of cF' in c.
+
+Canonical additiver (u : U) := Additive (base class u).
+Canonical linearr (u : U) := Linear (base class u).
+Canonical additivel (u' : U) := @GRing.Additive.Pack _ _ (Phant (U -> R))
+  (applyr cF u') (Bilinear.basel (base class) u').
+Canonical linearl (u' : U) := @GRing.Linear.Pack _ _ _ _ (Phant (U -> R))
+  (applyr cF u') (Bilinear.basel (base class) u').
+Canonical bilinear := @Bilinear.Pack _ _ _ _ _ _ (Phant (U -> U -> R)) cF (base class).
+Canonical hermitian := @Hermitian.Pack _ _ _ _ (Phant U) cF (base class).
+
+Definition clone (f g : U -> U -> R) :=
+ fun fM of phant_id g (apply cF) & phant_id fM class => @Pack phU f fM.
 
 
-Section classfun.
+Definition pack f fM :=
+  fun b s s' (bF : Hermitian.map s s' phU) of phant_id (Hermitian.class bF) b =>
+  @Pack phU f (Class b fM).
+
+End ClassDef.
+
+Module Exports.
+Notation "{ 'dot' U 'for' theta }" := (map theta (Phant U))
+  (at level 0, format "{ 'dot'  U  'for'  theta }") : ring_scope.
+Coercion base : class_of >-> Hermitian.class_of.
+Coercion apply : map >-> Funclass.
+Notation "[ 'dot' 'of' f 'as' g ]" := (@clone _ _ _ _ _ f g _ idfun idfun)
+  (at level 0, format "[ 'dot'  'of'  f  'as'  g ]") : form_scope.
+Notation "[ 'dot' 'of' f ]" := (@clone _ _ _ _ _ f f _ idfun idfun)
+  (at level 0, format "[ 'dot'  'of'  f ]") : form_scope.
+Notation Dot fM := (pack fM idfun).
+Notation is_dot := Dot.axiom.
+Canonical additiver.
+Canonical linearr.
+Canonical additivel.
+Canonical linearl.
+Canonical bilinear.
+Canonical hermitian.
+Notation dotapplyr := (@applyr_head _ _ _ _ tt).
+End Exports.
+
+End Dot.
+Include Dot.Exports.
+
+Definition symmetric_map (R : ringType) (U : lmodType R) (phU : phant U) :=
+  Eval simpl in Hermitian.map false [rmorphism of idfun] phU.
+Notation "{ 'symmetric' U }" := (symmetric_map (Phant U))
+  (at level 0, format "{ 'symmetric'  U }") : ring_scope.
+
+Definition skew_symmetric_map (R : ringType) (U : lmodType R) (phU : phant U) :=
+  Eval simpl in Hermitian.map true [rmorphism of idfun] phU.
+Notation "{ 'skew_symmetric' U }" := (skew_symmetric_map (Phant U))
+  (at level 0, format "{ 'skew_symmetric'  U }") : ring_scope.
+
+Definition hermitian_sym_map (R : ringType) (U : lmodType R) theta (phU : phant U) :=
+  Eval simpl in Hermitian.map false theta phU.
+Notation "{ 'hermitian_sym' U 'for' theta }" := (hermitian_sym_map (Phant U))
+  (at level 0, format "{ 'hermitian_sym'  U  'for'  theta }") : ring_scope.
+
+Definition is_skew (R : ringType) (eps : bool) (theta : {rmorphism R -> R})
+  (U : lmodType R) (form : {hermitian U for eps & theta}) :=
+  (eps = true) /\ (theta =1 id).
+Definition is_sym (R : ringType) (eps : bool) (theta : {rmorphism R -> R})
+  (U : lmodType R) (form : {hermitian U for eps & theta}) :=
+  (eps = false) /\ (theta =1 id).
+Definition is_hermsym  (R : ringType) (eps : bool) (theta : {rmorphism R -> R})
+  (U : lmodType R) (form : {hermitian U for eps & theta}) :=
+  (eps = false).
+
+Section HermitianModuleTheory.
+
+Variables (R : ringType) (eps : bool) (theta : {rmorphism R -> R}).
+Variable (U : lmodType R) (form : {hermitian U for eps & theta}).
+
+Local Notation "''[' u , v ]" := (form u%R v%R) : ring_scope.
+Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
+
+Lemma thetaK : involutive theta.
+Proof. by case: form => [? [? []]]. Qed.
+
+Lemma hermC u v : '[u, v] = (-1) ^+ eps * theta '[v, u].
+Proof. by case: form => [? [? []]]. Qed.
+
+Lemma hnormN u : '[- u] = '[u].
+Proof. by rewrite linearNl raddfN opprK. Qed.
+
+Lemma hnorm_sign n u : '[(-1) ^+ n *: u] = '[u].
+Proof. by rewrite -signr_odd scaler_sign; case: (odd n); rewrite ?hnormN. Qed.
+
+Lemma hnormD u v :
+  let d := '[u, v] in '[u + v] = '[u] + '[v] + (d + (-1) ^+ eps * theta d).
+Proof. by rewrite /= addrAC -hermC linearDl /= !linearD !addrA. Qed.
+
+Lemma hnormB u v :
+  let d := '[u, v] in '[u - v] = '[u] + '[v] - (d + (-1) ^+ eps * theta d).
+Proof. by rewrite /= hnormD hnormN linearN rmorphN /= mulrN -opprD. Qed.
+
+Lemma hnormDd u v : '[u, v] = 0 -> '[u + v] = '[u] + '[v].
+Proof. by move=> ouv; rewrite hnormD ouv rmorph0 mulr0 !addr0. Qed.
+
+Lemma hnormBd u v : '[u, v] = 0 -> '[u - v] = '[u] + '[v].
+Proof. by move=> ouv; rewrite hnormDd ?hnormN // linearN /= ouv oppr0. Qed.
+
+Local Notation "u _|_ v" := ('[u, v] == 0) : ring_scope.
+
+Definition ortho_rec S1 S2 :=
+  all [pred u | all [pred v | u _|_ v] S2] S1.
+
+Fixpoint pair_ortho_rec S :=
+  if S is v :: S' then ortho_rec [:: v] S' && pair_ortho_rec S' else true.
+
+(* We exclude 0 from pairwise orthogonal sets. *)
+Definition pairwise_orthogonal S := (0 \notin S) && pair_ortho_rec S.
+
+Definition orthonormal S := all [pred v | '[v] == 1] S && pair_ortho_rec S.
+
+Definition isometry tau := forall u v, '[tau u, tau v] = '[u, v].
+
+Definition isometry_from_to mD tau mR :=
+   prop_in2 mD (inPhantom (isometry tau))
+  /\ prop_in1 mD (inPhantom (forall u, in_mem (tau u) mR)).
+
+Definition orthogonal S1 S2 := nosimpl (@ortho_rec S1 S2).
+
+Lemma orthogonal_cons u us vs :
+  orthogonal (u :: us) vs = orthogonal [:: u] vs && orthogonal us vs.
+Proof. by rewrite /orthogonal /= andbT. Qed.
+
+End HermitianModuleTheory.
+
+Hint Extern 0 (Hermitian.map _ _ _) =>
+  match goal with form : Hermitian.map _ _ _ |- _ => exact form end : core.
+(* in order to use thetaK *)
+
+Notation "{ 'in' D , 'isometry' tau , 'to' R }" :=
+    (isometry_from_to (mem D) tau (mem R))
+  (at level 0, format "{ 'in'  D ,  'isometry'  tau ,  'to'  R }")
+     : type_scope.
+
+Section HermitianVectTheory.
+
+Variables (R : fieldType) (eps : bool) (theta : {rmorphism R -> R}).
+Variable (U : lmodType R) (form : {hermitian U for eps & theta}).
+
+Local Notation "''[' u , v ]" := (form u%R v%R) : ring_scope.
+Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
+
+Lemma herm_eq0C u v : ('[u, v] == 0) = ('[v, u] == 0).
+Proof. by rewrite hermC mulf_eq0 signr_eq0 /= fmorph_eq0. Qed.
+
+End HermitianVectTheory.
+
+Section HermitianFinVectTheory.
+
+Variables (F : fieldType) (eps : bool) (theta : {rmorphism F -> F}).
+Variable (vT : vectType F) (form : {hermitian vT for eps & theta}).
+Let n := \dim {:vT}.
+Implicit Types (u v : vT) (U V : {vspace vT}).
+
+Local Notation "''[' u , v ]" := (form u%R v%R) : ring_scope.
+Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
+
+Let alpha v := (linfun (applyr form v : vT -> F^o)).
+
+Definition rad V := (\bigcap_(i < \dim V) lker (alpha (vbasis V)`_i))%VS.
+
+Local Notation "U _|_ V" := (U <= rad V)%VS : vspace_scope.
+
+Lemma mem_radPn V u : reflect (exists2 v, v \in V & '[u, v] != 0) (u \notin rad V).
+Proof.
+apply: (iffP idP) => [u_radV|[v /coord_vbasis-> uvNortho]]; last first.
+  apply/subv_bigcapP => uP; rewrite linear_sum big1 ?eqxx //= in uvNortho.
+  move=> i _; have := uP i isT.
+  by rewrite -memvE memv_ker lfunE linearZ => /eqP/=->; rewrite mulr0.
+suff /existsP [i ui_neq0] : [exists i : 'I_(\dim V), '[u, (vbasis V)`_i] != 0].
+  by exists (vbasis V)`_i => //; rewrite vbasis_mem ?mem_nth ?size_tuple.
+apply: contraNT u_radV; rewrite negb_exists => /forallP ui_eq0.
+by apply/subv_bigcapP => i _; rewrite -memvE memv_ker lfunE /= -[_ == _]negbK.
+Qed.
+
+Lemma mem_radP V u : reflect {in V, forall v, '[u, v] = 0} (u \in rad V).
+Proof.
+apply: (iffP idP) => [/mem_radPn orthoNu v vV|/(_ _ _)/eqP ortho_u].
+  by apply/eqP/negP=> /negP Northo_uv; apply: orthoNu; exists v.
+by apply/mem_radPn => -[v /ortho_u->].
+Qed.
+
+Lemma rad1E u : rad <[u]> = lker (alpha u).
+Proof.
+apply/eqP; rewrite eqEsubv; apply/andP.
+split; apply/subvP=> v; rewrite memv_ker lfunE /=.
+   by move=> /mem_radP-> //; rewrite ?memv_line.
+move=> vu_eq0; apply/mem_radP => w /vlineP[k->].
+by apply/eqP; rewrite linearZ mulf_eq0 vu_eq0 orbT.
+Qed.
+
+Lemma orthoP U V : reflect {in U & V, forall u v, '[u, v] = 0} (U _|_ V)%VS.
+Proof.
+apply: (iffP subvP); first by move=> /(_ _ _)/mem_radP; move=> H ????; apply: H.
+by move=> H ??; apply/mem_radP=> ??; apply: H.
+Qed.
+
+Lemma ortho_sym U V : (U _|_ V)%VS = (V _|_ U)%VS.
+Proof. by apply/orthoP/orthoP => eq0 ????; apply/eqP; rewrite herm_eq0C eq0. Qed.
+
+Lemma mem_rad1 v u : (u \in rad <[v]>) = ('[u, v] == 0).
+Proof. by rewrite rad1E memv_ker lfunE. Qed.
+
+Lemma ortho11 u v : (<[u]> _|_ <[v]>)%VS = ('[u, v] == 0).
+Proof. exact: mem_rad1. Qed.
+
+Lemma mem_rad1_sym v u : (u \in rad <[v]>) = (v \in rad <[u]>).
+Proof. exact: ortho_sym. Qed.
+
+Lemma rad0 : rad 0 = fullv.
+Proof.
+apply/eqP; rewrite eqEsubv subvf.
+by apply/subvP => x _; rewrite mem_rad1 linear0.
+Qed.
+
+Lemma mem_rad_sym V u : (u \in rad V) = (V <= rad <[u]>)%VS.
+Proof. exact: ortho_sym. Qed.
+
+Lemma leq_dim_rad1 u V : ((\dim V).-1 <= \dim (V :&: rad <[u]>))%N.
+Proof.
+rewrite -(limg_ker_dim (alpha u) V) -rad1E.
+have := dimvS (subvf (alpha u @: V)); rewrite dim_regular addnC.
+by case: (\dim _) => [|[]] // _; rewrite leq_pred.
+Qed.
+
+Lemma dim_img_form_eq1 u V : u \notin rad V -> \dim (alpha u @: V)%VS = 1%N.
+Proof.
+move=> /mem_radPn [v vV Northo_uv]; apply/eqP; rewrite eqn_leq /=.
+rewrite -[1%N as X in (_ <= X)%N](dim_regular F) dimvS ?subvf//=.
+have := @dimvS _ _ <['[v, u] : F^o]> (alpha u @: V).
+rewrite -memvE dim_vline herm_eq0C Northo_uv; apply.
+by apply/memv_imgP; exists v; rewrite ?memvf// !lfunE /=.
+Qed.
+
+Lemma eq_dim_rad1 u V : u \notin rad V -> (\dim V).-1 = \dim (V :&: rad <[u]>).
+Proof.
+rewrite -(limg_ker_dim (alpha u) V) => /dim_img_form_eq1->.
+by rewrite -rad1E addn1.
+Qed.
+
+Lemma dim_img_form_eq0 u V : u \in rad V -> \dim (alpha u @: V)%VS = 0%N.
+Proof. by move=> uV; apply/eqP; rewrite dimv_eq0 -lkerE -rad1E ortho_sym. Qed.
+
+Lemma neq_dim_rad1 u V : (\dim V > 0)%N ->
+  u \in rad V -> ((\dim V).-1 < \dim (V :&: rad <[u]>))%N.
+Proof.
+move=> V_gt0; rewrite -(limg_ker_dim (alpha u) V) -rad1E => u_in.
+rewrite dim_img_form_eq0 // addn0 (capv_idPl _) 1?ortho_sym //.
+by case: (\dim _) V_gt0.
+Qed.
+
+Lemma leqif_dim_rad1 u V : (\dim V > 0)%N ->
+   ((\dim V).-1 <= \dim (V :&: rad <[u]>) ?= iff (u \notin rad V))%N.
+Proof.
+move=> Vr_gt0; apply/leqifP.
+by case: (boolP (u \in _)) => /= [/neq_dim_rad1->|/eq_dim_rad1->].
+Qed.
+
+Lemma leqif_dim_rad1_full u : (n > 0)%N ->
+   ((\dim {:vT}).-1 <= \dim (rad <[u]>) ?= iff (u \notin rad fullv))%N.
+Proof.
+by move=> n_gt0; have := @leqif_dim_rad1 u fullv; rewrite capfv; apply.
+Qed.
+
+(* Link between rad and orthogonality of sequences *)
+Lemma orthogonal1P u v : reflect ('[u, v] = 0) (orthogonal form [:: u] [:: v]).
+Proof. by rewrite /orthogonal /= !andbT; apply: eqP. Qed.
+
+Lemma orthogonalP us vs :
+  reflect {in us & vs, forall u v, '[u, v] = 0} (orthogonal form us vs).
+Proof.
+apply: (iffP allP) => ousvs u => [v /ousvs/allP opus /opus/eqP // | /ousvs opus].
+by apply/allP=> v /= /opus->.
+Qed.
+
+Lemma orthogonalE us vs : (orthogonal form us vs) = (<<us>> _|_ <<vs>>)%VS.
+Proof.
+apply/orthogonalP/orthoP => uvsP u v; last first.
+  by move=> uus vvs; rewrite uvsP // memv_span.
+rewrite -[us]in_tupleE -[vs]in_tupleE => /coord_span-> /coord_span->.
+rewrite linear_sum big1 //= => i _; rewrite linear_suml big1 //= => j _.
+by rewrite linearZ /= linearZl_LR/= uvsP ?mulr0// mem_nth.
+Qed.
+
+Lemma orthoE U V : (U _|_ V)%VS = orthogonal form (vbasis U) (vbasis V).
+Proof. by rewrite orthogonalE !(span_basis (vbasisP _)). Qed.
+
+Definition nondegenerate := rad fullv == 0%VS.
+Definition is_symplectic := [/\ nondegenerate, is_skew form &
+                                2 \in [char F] -> forall u, '[u, u] = 0].
+Definition is_orthogonal := [/\ nondegenerate, is_sym form &
+                                2 \in [char F] -> forall u, '[u, u] = 0].
+Definition is_unitary := nondegenerate /\ (is_hermsym form).
+
+End HermitianFinVectTheory.
+
+Section DotVectTheory.
+
+Variables (C : numClosedFieldType).
+Variable (U : lmodType C) (form : {dot U for conjC}).
+
+Local Notation "''[' u , v ]" := (form u%R v%R) : ring_scope.
+Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
+
+Let neq0_dnorm_gt0 u : u != 0 -> 0 < '[u].
+Proof. by case: form => [?[?]] /=; apply. Qed.
+
+Lemma dnorm_geiff0 u : 0 <= '[u] ?= iff (u == 0).
+Proof.
+by apply/lerifP; have [->|uN0] := altP eqP; rewrite ?linear0 ?neq0_dnorm_gt0.
+Qed.
+
+Lemma dnorm_ge0 u : 0 <= '[u]. Proof. by rewrite dnorm_geiff0. Qed.
+
+Lemma dnorm_eq0 u : ('[u] == 0) = (u == 0).
+Proof. by rewrite -dnorm_geiff0 eq_sym. Qed.
+
+Lemma dnorm_gt0 u : (0 < '[u]) = (u != 0).
+Proof. by rewrite ltr_def dnorm_eq0 dnorm_ge0 andbT. Qed.
+
+Lemma sqrt_dnorm_ge0 u : 0 <= sqrtC '[u].
+Proof. by rewrite sqrtC_ge0 dnorm_ge0. Qed.
+
+Lemma sqrt_dnorm_eq0 u : (sqrtC '[u] == 0) = (u == 0).
+Proof. by rewrite sqrtC_eq0 dnorm_eq0. Qed.
+
+Lemma sqrt_dnorm_gt0 u : (sqrtC '[u] > 0) = (u != 0).
+Proof. by rewrite sqrtC_gt0 dnorm_gt0. Qed.
+
+Lemma dnormZ a u : '[a *: u]= `|a| ^+ 2 * '[u].
+Proof. by rewrite linearZl_LR linearZ mulrA normCK. Qed.
+
+Lemma dnormD u v : let d := '[u, v] in '[u + v] = '[u] + '[v] + (d + d^*).
+Proof. by rewrite hnormD mul1r. Qed.
+
+Lemma dnormB u v : let d := '[u, v] in '[u - v] = '[u] + '[v] - (d + d^*).
+Proof. by rewrite hnormB mul1r. Qed.
+
+End DotVectTheory.
+
+Section DotFinVectTheory.
+
+Variables (C : numClosedFieldType).
+Variable (U : vectType C) (form : {dot U for conjC}).
+
+Local Notation "''[' u , v ]" := (form u%R v%R) : ring_scope.
+Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
+
+Theorem CauchySchwarz (u v : U) :
+  `|'[u, v]| ^+ 2 <= '[u] * '[v] ?= iff ~~ free [:: u; v].
+Proof.
+rewrite free_cons span_seq1 seq1_free -negb_or negbK orbC.
+have [-> | nz_v] /= := altP (v =P 0).
+  by apply/lerifP; rewrite /= !linear0 normCK mul0r mulr0.
+without loss ou: u / '[u, v] = 0.
+  move=> IHo; pose a := '[u, v] / '[v]; pose u1 := u - a *: v.
+  have ou: '[u1, v] = 0.
+    by rewrite linearBl /= linearZl_LR /= divfK ?dnorm_eq0 ?subrr.
+  rewrite (canRL (subrK _) (erefl u1)) rpredDr ?rpredZ ?memv_line //.
+  rewrite linearDl /= ou add0r linearZl_LR /= normrM (ger0_norm (dnorm_ge0 _ _)).
+  rewrite exprMn mulrA -dnormZ hnormDd/=; last by rewrite linearZ/= ou mulr0.
+  by have:= IHo _ ou; rewrite mulrDl -lerif_subLR subrr ou normCK mul0r.
+rewrite ou normCK mul0r; split; first by rewrite mulr_ge0 ?dnorm_ge0.
+rewrite eq_sym mulf_eq0 orbC dnorm_eq0 (negPf nz_v) /=.
+apply/idP/idP=> [|/vlineP[a {2}->]]; last by rewrite linearZ/= ou mulr0.
+by rewrite dnorm_eq0 => /eqP->; apply: rpred0.
+Qed.
+
+Lemma CauchySchwarz_sqrt u v :
+  `|'[u, v]| <= sqrtC '[u] * sqrtC '[v] ?= iff ~~ free [:: u; v].
+Proof.
+rewrite -(sqrCK (normr_ge0 _)) -sqrtCM ?qualifE ?dnorm_ge0 //.
+rewrite (mono_in_lerif (@ler_sqrtC _)) 1?rpredM ?qualifE;
+by rewrite ?normr_ge0 ?dnorm_ge0 //; apply: CauchySchwarz.
+Qed.
+
+Lemma triangle_lerif u v :
+  sqrtC '[u + v] <= sqrtC '[u] + sqrtC '[v]
+           ?= iff ~~ free [:: u; v] && (0 <= coord [tuple v] 0 u).
+Proof.
+rewrite -(mono_in_lerif ler_sqr) ?rpredD ?qualifE ?sqrtC_ge0 ?dnorm_ge0 //.
+rewrite andbC sqrrD !sqrtCK addrAC dnormD (mono_lerif (ler_add2l _))/=.
+rewrite -mulr_natr -[_ + _](divfK (negbT (pnatr_eq0 C 2))) -/('Re _).
+rewrite (mono_lerif (ler_pmul2r _)) ?ltr0n //.
+have:= lerif_trans (lerif_Re_Creal '[u, v]) (CauchySchwarz_sqrt u v).
+congr (_ <= _ ?= iff _); apply: andb_id2r.
+rewrite free_cons span_seq1 seq1_free -negb_or negbK orbC.
+have [-> | nz_v] := altP (v =P 0); first by rewrite linear0 coord0.
+case/vlineP=> [x ->]; rewrite linearZl_LR linearZ pmulr_lge0 ?dnorm_gt0 //=.
+by rewrite (coord_free 0) ?seq1_free // eqxx mulr1.
+Qed.
+
+End DotFinVectTheory.
+
+
+Section TEST_classfun.
 From mathcomp Require Import classfun.
 
 Canonical rev_cfdot (gT : finGroupType) (B : {set gT}) :=
@@ -368,22 +710,45 @@ by rewrite !['[_, xi]]cfdotC rmorphD rmorphM !conjCK.
 Qed.
 Canonical cfdot_additive xi := Additive (cfdot_is_linear xi).
 Canonical cfdot_linear xi := Linear (cfdot_is_linear xi).
-End Cfdot.
 
-Canonical cfdot_bilinear (gT : finGroupType) (B : {group gT}) :=
-  [bilinear of @cfdot gT B].
+Canonical cfdot_bilinear := [bilinear of @cfdot gT G].
 
-Section Cfdot_ex.
-Variables (gT : finGroupType) (G : {group gT}).
+Lemma cfdotC_subproof (phi psi : 'CF(G)) : '[phi, psi] = (-1) ^+ false * ('[psi, phi])^*.
+Proof. by rewrite mul1r cfdotC. Qed.
+
+Definition cfdot_is_hermitian : hermitian_for false conjC (@cfdot gT G).
+Proof. by split=> *; [exact: conjCK|rewrite mul1r cfdotC]. Qed.
+Canonical cfdot_hermsym := Hermitian cfdot_is_hermitian.
+
+Definition cfdot_is_dot : is_dot (@cfdot gT G).
+Proof. by move=> phi phi_neq0; rewrite cfnorm_gt0. Qed.
+Canonical cfdot_dot := Dot cfdot_is_dot.
+
+Section examples.
 
 Lemma cfdot0l P (xi xi1 xi2 : 'CF(G)) : P '[ xi1 + xi2, xi].
 Proof. rewrite linearDl /=. Abort.
 
-End Cfdot_ex.
+Lemma cfCauchySchwarz (phi psi : 'CF(G)) :
+  `|'[phi, psi]| ^+ 2 <= '[phi] * '[psi] ?= iff ~~ free (phi :: psi).
+Proof.
+exact: CauchySchwarz.
+Abort.
 
-End classfun.
+End examples.
+End Cfdot.
 
+End TEST_classfun.
 
+(* TO UPDATE !: *)
+Module mxforms.
+
+Notation "u '``_' i" := (u (GRing.zero (Zp_zmodType O)) i) : ring_scope.
+Notation "''e_' i" := (delta_mx 0 i)
+ (format "''e_' i", at level 3) : ring_scope.
+
+Local Notation "M ^ phi" := (map_mx phi M).
+Local Notation "M ^t phi" := (map_mx phi (M ^T)) (phi at level 30, at level 30).
 
 Section BilinearForms.
 
@@ -459,7 +824,7 @@ Local Notation "''[' u ]" := '[u%R, u%R]%R : ring_scope.
 Lemma sesquiE : (M \is (eps,theta).-sesqui) = (M == (-1) ^+ eps *: M ^t theta).
 Proof. by rewrite qualifE. Qed.
 
-Lemma sesquiP : reflect (M = (-1) ^+ eps *: M ^t theta) 
+Lemma sesquiP : reflect (M = (-1) ^+ eps *: M ^t theta)
                         (M \is (eps,theta).-sesqui).
 Proof. by rewrite sesquiE; apply/eqP. Qed.
 
@@ -481,7 +846,7 @@ Lemma formC u v : '[u, v] = (-1) ^+ eps * theta '[v, u].
 Proof.
 rewrite /form [M in LHS](sesquiP _) // -mulmxA !mxE rmorph_sum mulr_sumr.
 apply: eq_bigr => /= i _; rewrite !(mxE, mulr_sumr, mulr_suml, rmorph_sum).
-apply: eq_bigr => /= j _; rewrite !mxE !rmorphM  mulrCA -!mulrA. 
+apply: eq_bigr => /= j _; rewrite !mxE !rmorphM  mulrCA -!mulrA.
 by congr (_ * _); rewrite mulrA mulrC thetaK.
 Qed.
 
@@ -511,7 +876,7 @@ apply: (iffP idP) => AnB.
   rewrite trmx_mul map_mxM !mulmxA -[kermx _ *m _ *m _]mulmxA.
   by rewrite [kermx _ *m _](sub_kermxP _) // mul0mx.
 apply/rV_subP => u /AnB /(_ _) /sub_kermxP uMv; apply/sub_kermxP.
-suff: forall m (v : 'rV[R]_m), 
+suff: forall m (v : 'rV[R]_m),
   (forall i, v *m 'e_i ^t theta = 0 :> 'M_1) -> v = 0.
   apply => i; rewrite !mulmxA -!mulmxA -map_mxM -trmx_mul uMv //.
   by apply/submxP; exists 'e_i.
@@ -537,7 +902,7 @@ Proof. by rewrite normalC. Qed.
 
 Lemma rank_normal u : (\rank (u ^_|_) >= n.-1)%N.
 Proof.
-rewrite mxrank_ker -subn1 leq_sub2l //. 
+rewrite mxrank_ker -subn1 leq_sub2l //.
 by rewrite (leq_trans (mxrankM_maxr  _ _)) // rank_leq_col.
 Qed.
 
@@ -575,54 +940,6 @@ Proof.
 by move=> uTv; rewrite formDd ?formN // normalE formNr oppr_eq0 -normalE.
 Qed.
 
-(* Lemma formJ u v : '[u ^ theta, v ^ theta] = (-1) ^+ eps * theta '[u, v]. *)
-(* Proof. *)
-(* rewrite {1}/form -map_trmx -map_mx_comp (@eq_map_mx _ _ _ _ _ id) ?map_mx_id //. *)
-(* set x := (_ *m _); have -> : x 0 0 = theta ((x^t theta) 0 0) by rewrite !mxE. *)
-(* rewrite !trmx_mul trmxK map_trmx mulmxA !map_mxM. *)
-(* rewrite maptrmx_sesqui -!scalemxAr -scalemxAl mxE rmorphM rmorph_sign. *)
-
-(* Lemma formJ u : '[u ^ theta] = (-1) ^+ eps * '[u]. *)
-(* Proof.  *)
-(* rewrite {1}/form -map_trmx -map_mx_comp (@eq_map_mx _ _ _ _ _ id) ?map_mx_id //. *)
-(* set x := (_ *m _); have -> : x 0 0 = theta ((x^t theta) 0 0) by rewrite !mxE. *)
-(* rewrite !trmx_mul trmxK map_trmx mulmxA !map_mxM. *)
-(* rewrite maptrmx_sesqui -!scalemxAr -scalemxAl mxE rmorphM rmorph_sign. *)
-(* rewrite !map_mxM. *)
-(* rewrite -map_mx_comp eq_map_mx_id //. *)
-(*  !linearZr_LR /=. linearZ. *)
-(*  linearZl. *)
-(* rewrite trmx_sesqui. *)
-
-
-(* rewrite mapmx. *)
-(* rewrite map *)
-(* apply/matrixP.  *)
-
-(* rewrite formC. *)
-(* Proof. by rewrite cfdot_conjC geC0_conj // cfnorm_ge0. Qed. *)
-
-(* Lemma cfCauchySchwarz u v : *)
-(*   `|'[u, v]| ^+ 2 <= '[u] * '[v] ?= iff ~~ free (u :: v). *)
-(* Proof. *)
-(* rewrite free_cons span_seq1 seq1_free -negb_or negbK orbC. *)
-(* have [-> | nz_v] /= := altP (v =P 0). *)
-(*   by apply/lerifP; rewrite !cfdot0r normCK mul0r mulr0. *)
-(* without loss ou: u / '[u, v] = 0. *)
-(*   move=> IHo; pose a := '[u, v] / '[v]; pose u1 := u - a *: v. *)
-(*   have ou: '[u1, v] = 0. *)
-(*     by rewrite cfdotBl cfdotZl divfK ?cfnorm_eq0 ?subrr. *)
-(*   rewrite (canRL (subrK _) (erefl u1)) rpredDr ?rpredZ ?memv_line //. *)
-(*   rewrite cfdotDl ou add0r cfdotZl normrM (ger0_norm (cfnorm_ge0 _)). *)
-(*   rewrite exprMn mulrA -cfnormZ cfnormDd; last by rewrite cfdotZr ou mulr0. *)
-(*   by have:= IHo _ ou; rewrite mulrDl -lerif_subLR subrr ou normCK mul0r. *)
-(* rewrite ou normCK mul0r; split; first by rewrite mulr_ge0 ?cfnorm_ge0. *)
-(* rewrite eq_sym mulf_eq0 orbC cfnorm_eq0 (negPf nz_v) /=. *)
-(* apply/idP/idP=> [|/vlineP[a {2}->]]; last by rewrite cfdotZr ou mulr0. *)
-(* by rewrite cfnorm_eq0 => /eqP->; apply: rpred0. *)
-(* Qed. *)
-
-
 End Sesquilinear.
 
 Notation "eps_theta .-sesqui" := (sesqui _ eps_theta)
@@ -631,9 +948,6 @@ Notation "eps_theta .-sesqui" := (sesqui _ eps_theta)
 Notation symmetric := (false, [rmorphism of idfun]).-sesqui.
 Notation skew := (true, [rmorphism of idfun]).-sesqui.
 Notation hermitian := (false, @conjC _).-sesqui.
-
-
-
 
 (* Section ClassificationForm. *)
 
@@ -649,7 +963,6 @@ Notation hermitian := (false, @conjC _).-sesqui.
 (* Proof. *)
 (* pose  *)
 
-
 (*                       [/\ forall u, '[u] = 0, theta =1 id & eps = -1] *)
 (*                       \/ ((exists u, '[u] != 0) /\ (eps = 1)). *)
 (* Proof. *)
@@ -659,44 +972,21 @@ Notation hermitian := (false, @conjC _).-sesqui.
 (*   right; split; first by exists ('e_i). *)
 (*   apply/eqP; *)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (*  contraT *)
-
 
 (* suff [f_eq0|] : (forall u, '[u] = 0) \/ (exists u, '[u] != 0). *)
 (*   left; split=> //. *)
-    
-   
-  
 
 (* have [] := boolP [forall i : 'I_n, '['e_i] == 0]. *)
-   
+
 (* suff /eqP : eps ^+ 2 = 1. *)
 (*   rewrite -subr_eq0 subr_sqr_1 mulf_eq0. *)
 (*   move => /orP[]; rewrite addr_eq0 ?opprK=> /eqP eps_eq. *)
 (*     right; split=> //. *)
-  
-(* have [] := boolP [forall i : 'I_n, '['e_i] == 0]. *)
-  
-(* have := sesquiC u u. *)
 
+(* have [] := boolP [forall i : 'I_n, '['e_i] == 0]. *)
+
+(* have := sesquiC u u. *)
 
 (* rewrite !linearZ /= -[eps *: _ *m _]/(mulmxr _ _) linearZ /= mxE; congr (_ * _). *)
 (* have : u = map_mx theta (map_mx theta u). *)
@@ -753,3 +1043,4 @@ Notation hermitian := (false, @conjC _).-sesqui.
 (* Local Notation "''[' u ]" := '[u%R, u%R] : ring_scope. *)
 (* Local Notation "A _|_ B" := (A%MS <= kermx B%MS^T)%MS. *)
 
+End mxforms.
