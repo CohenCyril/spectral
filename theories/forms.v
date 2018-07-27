@@ -846,28 +846,36 @@ Variable (eps : bool).
 Section HermitianMxDef.
 Variable (theta : R -> R).
 
-Definition hermitian_mx_pred :=
+Definition hermitianmx :=
   [qualify M : 'M_n | M == ((-1) ^+ eps) *: M ^t theta].
-Fact hermitian_mx_key : pred_key hermitian_mx_pred. Proof. by []. Qed.
-Canonical hermitian_mx_keyed := KeyedQualifier hermitian_mx_key.
+Fact hermitianmx_key : pred_key hermitianmx. Proof. by []. Qed.
+Canonical hermitianmx_keyed := KeyedQualifier hermitianmx_key.
 
-Structure hermitian_mx := HermitianMx {
+Structure hermitian_matrix := HermitianMx {
   mx_of_hermitian :> 'M[R]_n;
-  _ : mx_of_hermitian \is hermitian_mx_pred
+  _ : mx_of_hermitian \is hermitianmx
 }.
 
-Lemma hermitian_mxE (M : hermitian_mx) :
+Lemma is_hermitianmxE M :
+  (M \is hermitianmx) = (M == (-1) ^+ eps *: M ^t theta).
+Proof. by rewrite qualifE. Qed.
+
+Lemma is_hermitianmxP M :
+   reflect (M = (-1) ^+ eps *: M ^t theta) (M \is hermitianmx).
+Proof. by rewrite is_hermitianmxE; apply/eqP. Qed.
+
+Lemma hermitianmxE (M : hermitian_matrix) :
   M = ((-1) ^+ eps) *: M ^t theta :> 'M__.
 Proof. by apply/eqP; case: M. Qed.
 
-Lemma trmx_hermitian (M : hermitian_mx) :
+Lemma trmx_hermitian (M : hermitian_matrix) :
   M^T = ((-1) ^+ eps) *: M ^ theta :> 'M__.
-Proof. by rewrite {1}hermitian_mxE linearZ /= map_trmx trmxK. Qed.
+Proof. by rewrite {1}hermitianmxE linearZ /= map_trmx trmxK. Qed.
 
 End HermitianMxDef.
 
 Section HermitianMxTheory.
-Variables (theta : {involutive_rmorphism R}) (M : hermitian_mx theta).
+Variables (theta : {involutive_rmorphism R}) (M : hermitian_matrix theta).
 
 Lemma maptrmx_hermitian : M^t theta = (-1) ^+ eps *: (M : 'M__).
 Proof.
@@ -878,7 +886,7 @@ Qed.
 Lemma form_of_matrix_is_hermitian :
   hermitian_for eps theta (form_of_matrix theta M).
 Proof.
-move=> /= u v; rewrite {1}hermitian_mxE /form_of_matrix -scalemxAr.
+move=> /= u v; rewrite {1}hermitianmxE /form_of_matrix -scalemxAr.
 rewrite -scalemxAl -!mulmxA -map_mxM -trmx_mul mxE; congr (_ * _).
 transitivity (theta (((u *m (v *m M) ^t theta) ^t theta) 0 0)).
   by rewrite !mxE rmorphK.
@@ -898,7 +906,7 @@ Proof.
 by rewrite (sameP sub_kermxP eqP) mulmxA [_ *m _^t _]mx11_scalar fmorph_eq0.
 Qed.
 
-Lemma hermimx_eq0P {u v} : reflect ('[u, v] = 0) (u _|_ v).
+Lemma hermmx_eq0P {u v} : reflect ('[u, v] = 0) (u _|_ v).
 Proof. by rewrite orthomxE; apply/eqP. Qed.
 
 Lemma orthomxP p q (A : 'M_(p, n)) (B :'M_(q, n)) :
@@ -948,15 +956,11 @@ Proof. by rewrite /radmx /orthomx trmx1 map_mx1 mulmx1. Qed.
 
 End HermitianMxTheory.
 End HermitianMx.
-
-(* Notation "eps_theta .-sesqui" := (sesqui _ eps_theta) *)
-(*   (at level 2, format "eps_theta .-sesqui") : ring_scope. *)
-
-(* Notation symmetric := (false, [rmorphism of idfun]).-sesqui. *)
-(* Notation skew := (true, [rmorphism of idfun]).-sesqui. *)
-(* Notation hermitian := (false, @conjC _).-sesqui. *)
-
 End MatrixForms.
+
+Notation symmetricmx := (hermitianmx _ false idfun).
+Notation skewmx := (hermitianmx _ true idfun).
+Notation hermsymmx := (hermitianmx _ false (@conjC _)).
 
 Section TEST_classfun.
 From mathcomp Require Import classfun.
@@ -1096,4 +1100,3 @@ End TEST_classfun.
 (* Local Notation "''[' u , v ]" := (form u v) : ring_scope. *)
 (* Local Notation "''[' u ]" := '[u%R, u%R] : ring_scope. *)
 (* Local Notation "A _|_ B" := (A%MS <= kermx B%MS^T)%MS. *)
-

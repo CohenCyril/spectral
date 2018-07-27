@@ -99,66 +99,63 @@ Lemma normalmxP {n} {M: 'M[C]_n} :
 Proof. exact: eqP. Qed.
 
 Definition conjCfun (C : numClosedFieldType) := conjC : C -> C.
+Arguments conjCfun /.
 Canonical conjCfun_rmorphism (C : numClosedFieldType) :=
   [rmorphism of (@conjCfun C)].
 Canonical conjCfun_involutive (C : numClosedFieldType) :=
   InvolutiveRMorphism (@conjCK C : involutive (@conjCfun C)).
 
-Notation dot_def := (form_of_matrix (@conjCfun _) 1%:M).
-Definition dot n (u v : 'rV[C]_n) := dot_def u%R v%R.
+Notation dotmx_def := (form_of_matrix (@conjCfun _) 1%:M).
+Definition dotmx n (u v : 'rV[C]_n) := dotmx_def u%R v%R.
 
-Local Notation "''[' u , v ]" := (dot u v) : ring_scope.
+Local Notation "''[' u , v ]" := (dotmx u v) : ring_scope.
 Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
 
-Fact hermitian1 n : (1%:M : 'M[C]_n) \is (hermitian_mx_pred n false (@conjC _)).
+Fact dotmx_is_hermitian n : (1%:M : 'M[C]_n) \is hermsymmx.
 Proof.
 by rewrite qualifE /= expr0 scale1r tr_scalar_mx map_scalar_mx conjC1.
 Qed.
-Canonical hermitian1mx n := HermitianMx (hermitian1 n).
-Canonical dot_bilinear n := [bilinear of @dot n as dot_def].
-Canonical dot_hermsym n := [hermitian of (@dot n) as dot_def].
+Canonical hermitian1mx n := HermitianMx (dotmx_is_hermitian n).
+Canonical dotmx_bilinear n := [bilinear of @dotmx n as dotmx_def].
+Canonical dotmx_hermsym n := [hermitian of (@dotmx n) as dotmx_def].
 
-Local Notation "B ^_|_" := 
+Lemma dotmxE n (u v : 'rV_n) : '[u, v] = (u *m v ^t*) 0 0.
+Proof. by rewrite /dotmx /form_of_matrix mulmx1. Qed.
+
+Fact dotmx_is_dotmx n : is_dot (@dotmx n).
+Proof.
+move=> /= u u_neq0; rewrite dotmxE mxE.
+suff /existsP[i ui_neq0] : [exists i, u 0 i != 0].
+  rewrite (bigD1 i) //= ltr_paddr// ?sumr_ge0// ?mxE ?mul_conjC_gt0//.
+  by move=> j _; rewrite !mxE mul_conjC_ge0.
+apply: contraNT u_neq0; rewrite negb_exists => /forallP uNN0.
+by apply/eqP/rowP=> j; rewrite mxE; apply/eqP; rewrite -[_ == _]negbK uNN0.
+Qed.
+Canonical dotmx_dot n := Dot (@dotmx_is_dotmx n).
+
+Local Notation "B ^_|_" :=
   (orthomx (@conjCfun C) (hermitian1mx _) B) : ring_scope.
-Local Notation "A _|_ B" := (A%MS <= B^_|_)%MS : ring_scope.
+Local Notation "A _|_ B" := (A%MS <= (B^_|_)%R)%MS : ring_scope.
 
-Lemma normal1E m n p (A : 'M[C]_(m, n)) (B : 'M_(p, n)) :
+Lemma orthomx1E m n p (A : 'M[C]_(m, n)) (B : 'M_(p, n)) :
   A _|_ B = (A *m B^t* == 0).
 Proof. by apply/sub_kermxP/eqP; rewrite !mul1mx. Qed.
 
-Lemma normal1P {m n p : nat} {A : 'M[C]_(m, n)} {B : 'M_(p, n)} :
+Lemma orthomx1P {m n p : nat} {A : 'M[C]_(m, n)} {B : 'M_(p, n)} :
   reflect (A *m B^t* = 0) (A _|_ B).
-Proof. by rewrite normal1E; apply: eqP. Qed.
+Proof. by rewrite orthomx1E; apply: eqP. Qed.
 
-Lemma form1_ge0 n (u : 'rV[C]_n) : '[u] >= 0.
-Proof. rewrite dnorm_ge0.
-by rewrite /form mulmx1 mxE sumr_ge0 => // i _; rewrite !mxE mul_conjC_ge0.
-Qed.
-Hint Resolve form1_ge0.
-
-Lemma form1_eq0 n (u : 'rV[C]_n) : ('[u] == 0) = (u == 0).
-Proof.
-apply/idP/eqP; last by move->; rewrite form0r.
-rewrite /form mulmx1 mxE psumr_eq0 /=; last first.
-  by move=> i _; rewrite !mxE mul_conjC_ge0.
-move=> all_eq0;  apply/rowP=> i; rewrite mxE.
-have /allP /(_ i) := all_eq0; rewrite mem_index_enum.
-by rewrite !mxE mul_conjC_eq0 => /(_ _) /eqP->.
-Qed.
-
-Lemma form1_gt0 n (u : 'rV[C]_n) : ('[u] > 0) = (u != 0).
-Proof. by rewrite ltr_def form1_ge0 form1_eq0 andbT. Qed.
-
-Lemma normalmx_disj n p q (A : 'M[C]_(p, n)) (B :'M_(q, n)) :
+Lemma orthomx_disj n p q (A : 'M[C]_(p, n)) (B :'M_(q, n)) :
   A _|_ B -> (A :&: B = 0)%MS.
 Proof.
 move=> nAB; apply/eqP/rowV0Pn => [[v]]; rewrite sub_capmx => /andP [vA vB].
-by apply/negP; rewrite negbK -form1_eq0 -normalE (normalP _ _ _ _ nAB).
+apply/negP; rewrite negbK -(dnorm_eq0 (dotmx_dot n)) -orthomxE.
+by rewrite (orthomxP _ _ _ nAB).
 Qed.
 
-Lemma normalmx_ortho_disj n p (A : 'M[C]_(p, n)) : (A :&: A^_|_ = 0)%MS.
+Lemma orthomx_ortho_disj n p (A : 'M[C]_(p, n)) : (A :&: A^_|_ = 0)%MS.
 Proof.
-by apply/normalmx_disj/(@normal_mx_ortho _ _ false)=> //; apply/conjCK.
+by apply/orthomx_disj/(@orthomx_mx_ortho _ _ false)=> //; apply/conjCK.
 Qed.
 
 Lemma rank_ortho p n (A : 'M[C]_(p, n)) : \rank A^_|_ = (n - \rank A)%N.
@@ -171,28 +168,22 @@ Lemma addsmx_ortho p n (A : 'M[C]_(p, n)) : (A + A^_|_ :=: 1%:M)%MS.
 Proof.
 apply/eqmxP/andP; rewrite submx1; split=> //.
 rewrite -mxrank_leqif_sup ?submx1 ?mxrank1 ?(mxdirectP _) /= ?add_rank_ortho //.
-by rewrite mxdirect_addsE /= ?mxdirectE ?normalmx_ortho_disj !eqxx.
+by rewrite mxdirect_addsE /= ?mxdirectE ?orthomx_ortho_disj !eqxx.
 Qed.
 
-Definition normalC n :=
-  (@normalC _ _ _ _ _ (@conjCK _) (form1_sesqui n)).
-
-Definition normal_mx_ortho n :=
-  (@normal_mx_ortho _ _ _ _ _ (@conjCK _) (form1_sesqui n)).
-
-Lemma normalZl p m n a (A : 'M[C]_(p, n)) (B : 'M[C]_(m, n)) : a != 0 ->
+Lemma orthomxZl p m n a (A : 'M[C]_(p, n)) (B : 'M[C]_(m, n)) : a != 0 ->
   a *: A _|_ B = A _|_ B.
 Proof. by move=> a_neq0; rewrite eqmx_scale. Qed.
 
-Lemma normalZr p m n a (A : 'M[C]_(p, n)) (B : 'M[C]_(m, n)) : a != 0 ->
+Lemma orthomxZr p m n a (A : 'M[C]_(p, n)) (B : 'M[C]_(m, n)) : a != 0 ->
   A _|_ (a *: B) = A _|_ B.
-Proof. by move=> a_neq0; rewrite normalC normalZl // normalC. Qed.
+Proof. by move=> a_neq0; rewrite orthomxC orthomxZl // orthomxC. Qed.
 
 Lemma eqmx_ortho p m n (A : 'M[C]_(p, n)) (B : 'M[C]_(m, n)) :
   (A :=: B)%MS -> (A^_|_ :=: B^_|_)%MS.
 Proof.
 move=> eqAB; apply/eqmxP.
-by rewrite normalC -eqAB normal_mx_ortho normalC eqAB normal_mx_ortho.
+by rewrite orthomxC -eqAB orthomx_mx_ortho orthomxC eqAB orthomx_mx_ortho.
 Qed.
 
 Lemma genmx_ortho p n (A : 'M[C]_(p, n)) : (<<A>>^_|_ :=: A^_|_)%MS.
@@ -201,12 +192,12 @@ Proof. exact: (eqmx_ortho (genmxE _)). Qed.
 Lemma ortho_id p n (A : 'M[C]_(p, n)) : (A^_|_^_|_ :=: A)%MS.
 Proof.
 apply/eqmx_sym/eqmxP.
-by rewrite -mxrank_leqif_eq 1?normalC // !rank_ortho subKn // ?rank_leq_col.
+by rewrite -mxrank_leqif_eq 1?orthomxC // !rank_ortho subKn // ?rank_leq_col.
 Qed.
 
 Lemma submx_ortho (p m n : nat) (U : 'M[C]_(p, n)) (V : 'M_(m, n)) :
   (U^_|_ <= V^_|_)%MS = (V <= U)%MS.
-Proof. by rewrite normalC ortho_id. Qed.
+Proof. by rewrite orthomxC ortho_id. Qed.
 
 Definition proj_ortho p n (U : 'M[C]_(p, n)) := proj_mx <<U>>%MS U^_|_%MS.
 
@@ -219,7 +210,7 @@ Qed.
 Let cap_genmx_ortho (p n : nat) (U : 'M[C]_(p, n)) : (<<U>> :&: U^_|_)%MS = 0.
 Proof.
 apply/eqmx0P; rewrite !(cap_eqmx (genmxE _) (eqmx_refl _)).
-by rewrite normalmx_ortho_disj; apply/eqmx0P.
+by rewrite orthomx_ortho_disj; apply/eqmx0P.
 Qed.
 
 Lemma proj_ortho_sub (p m n : nat) (U : 'M_(p, n)) (W : 'M_(m, n)) :
@@ -258,13 +249,13 @@ apply/eqmxP/andP; split; first by rewrite -proj_ortho_proj proj_ortho_sub.
 by rewrite -[X in (X <= _)%MS](proj_ortho_id (submx_refl U)) mulmx_sub.
 Qed.
 
-Lemma normal_proj_mx_ortho (p p' m m' n : nat)
+Lemma orthomx_proj_mx_ortho (p p' m m' n : nat)
   (A : 'M_(p, n)) (A' : 'M_(p', n))
   (W : 'M_(m, n)) (W' : 'M_(m', n)) :
   A _|_ A' -> W *m proj_ortho A _|_ W' *m proj_ortho A'.
 Proof.
-rewrite normalC=> An.
-rewrite mulmx_sub // normalC (eqmx_ortho (proj_orthoE _)).
+rewrite orthomxC=> An.
+rewrite mulmx_sub // orthomxC (eqmx_ortho (proj_orthoE _)).
 by rewrite (submx_trans _ An) // proj_ortho_sub.
 Qed.
 
@@ -291,9 +282,9 @@ Lemma row_unitaryP {m n} {M : 'M[C]_(m, n)} :
 Proof.
 apply: (iffP eqP).
   move=> Mo i j; have /matrixP /(_ i j) := Mo; rewrite !mxE => <-.
-  by rewrite /form mulmx1 !mxE; apply: eq_bigr => /= k _; rewrite !mxE.
+  by rewrite dotmxE !mxE; apply: eq_bigr => /= k _; rewrite !mxE.
 move=> Mo; apply/matrixP=> i j; rewrite !mxE.
-have := Mo i j; rewrite /form mulmx1 !mxE => <-.
+have := Mo i j; rewrite dotmxE !mxE => <-.
 by apply: eq_bigr => /= k _; rewrite !mxE.
 Qed.
 
@@ -356,36 +347,37 @@ have [v /and4P [vBn v_neq0 dAv_ge0 dAsub]] :
     have /rowV0Pn [v vBn v_neq0] : B^_|_ != 0.
       rewrite -mxrank_eq0 rank_ortho -lt0n subn_gt0.
       by rewrite mxrank_unitary // -addn1.
-    rewrite normalC in vBn.
-    exists v; rewrite vBn v_neq0 -pBE (form_eq0P conjC _ _) ?lerr //=.
+    rewrite orthomxC in vBn.
+    exists v; rewrite vBn v_neq0 -pBE.
+      rewrite ['[_, _]](hermmx_eq0P _ _) ?lerr //=.
       rewrite (submx_trans (proj_ortho_sub _ _)) //.
       by rewrite -{1}[B]addr0 addmx_sub_adds ?sub0mx.
     by rewrite (submx_trans _ vBn) // proj_ortho_sub.
   pose c := (sqrtC '[BoSn])^-1; have c_gt0 : c > 0.
-    by rewrite invr_gt0 sqrtC_gt0 ltr_def ?form1_eq0 ?form1_ge0 BoSn_neq0.
+    by rewrite invr_gt0 sqrtC_gt0 ltr_def ?dnorm_eq0 ?dnorm_ge0 BoSn_neq0.
   exists BoSn; apply/and4P; split => //.
-  - by rewrite normalC ?proj_ortho_sub // /gtr_eqF.
-  - rewrite -pBE formDl // [X in X + '[_]](form_eq0P _ _ _) ?add0r //.
-    by rewrite normal_proj_mx_ortho // normalC.
+  - by rewrite orthomxC ?proj_ortho_sub // /gtr_eqF.
+  - rewrite -pBE linearDl // [X in X + '[_]](hermmx_eq0P _ _) ?add0r ?dnorm_ge0 //.
+    by rewrite orthomx_proj_mx_ortho // orthomxC.
   - by rewrite -pBE addmx_sub_adds // proj_ortho_sub.
 wlog nv_eq1 : v vBn v_neq0 dAv_ge0 dAsub / '[v] = 1.
   pose c := (sqrtC '[v])^-1.
-  have c_gt0 : c > 0 by rewrite invr_gt0 sqrtC_gt0 ?form1_gt0.
+  have c_gt0 : c > 0 by rewrite invr_gt0 sqrtC_gt0 ?dnorm_gt0.
   have [c_ge0 c_eq0F] := (ltrW c_gt0, gtr_eqF c_gt0).
   move=> /(_ (c *: v)); apply.
-  - by rewrite normalZr ?c_eq0F.
+  - by rewrite orthomxZr ?c_eq0F.
   - by rewrite scaler_eq0 c_eq0F.
-  - by rewrite formZr mulr_ge0 // conjC_ge0.
+  - by rewrite linearZr_LR mulr_ge0 // conjC_ge0.
   - by rewrite (submx_trans dAsub) // addsmxS // eqmx_scale // c_eq0F.
-  - rewrite formZ -normCK normfV ger0_norm ?sqrtC_ge0 ?form1_ge0 //.
-    by rewrite exprVn rootCK ?mulVf // form1_eq0.
+  - rewrite dnormZ normfV ger0_norm ?sqrtC_ge0 ?dnorm_ge0 //.
+    by rewrite exprVn rootCK ?mulVf // dnorm_eq0.
 exists (col_mx B v).
   apply/row_unitaryP => i j.
   case: (unsplitP i) => {i} i ->; case: (unsplitP j) => {j} j ->;
   rewrite ?(rowKu, rowKd, row_id, ord1) -?val_eqE /= ?(row_unitaryP _) //= ?addn0.
-  - by rewrite ltn_eqF // (form_eq0P _ _ _) // (submx_trans _ vBn) // row_sub.
-  - rewrite gtn_eqF // (form_eq0P _ _ _) //.
-    by rewrite normalC (submx_trans _ vBn) // row_sub.
+  - by rewrite ltn_eqF // ['[_, _]](hermmx_eq0P _ _) // (submx_trans _ vBn) // row_sub.
+  - rewrite gtn_eqF // ['[_, _]](hermmx_eq0P _ _) //.
+    by rewrite orthomxC (submx_trans _ vBn) // row_sub.
   - by rewrite eqxx.
 apply/forallP => i; case: (unsplitP i) => j -> /=.
   have /andP [sABj dot_gt0] := subAB j.
@@ -424,7 +416,7 @@ Qed.
 Lemma form1_row_schmidt m n (A : 'M[C]_(m, n)) i :
   '[row i A, row i (schmidt A)] >= 0.
 Proof.
-rewrite /schmidt; case: eqP => // ?.
+rewrite /schmidt; case: eqP => // ?; rewrite ?dnorm_ge0 //.
 by case: sig2_eqW => ? ? /= /forallP /(_ i) /andP[].
 Qed.
 
@@ -457,9 +449,9 @@ Lemma schmidt_complete_unitary m n (V : 'M[C]_(m, n)) :
 Proof.
 apply/unitaryP; rewrite tr_col_mx map_row_mx mul_col_row.
 rewrite !(unitaryP _) ?schmidt_unitary ?rank_leq_col //.
-move=> [:nsV]; rewrite !(normal1P _) -?scalar_mx_block //;
-  [abstract: nsV|]; last by rewrite normalC.
-by do 2!rewrite eqmx_schmidt_free ?eq_row_base ?row_base_free // normalC.
+move=> [:nsV]; rewrite !(orthomx1P _) -?scalar_mx_block //;
+  [abstract: nsV|]; last by rewrite orthomxC.
+by do 2!rewrite eqmx_schmidt_free ?eq_row_base ?row_base_free // orthomxC.
 Qed.
 
 Lemma eigenvectorP {n} {A : 'M[C]_n} {v : 'rV_n} :
@@ -565,8 +557,8 @@ have vSvo X : stable v X ->
   move=> /eigenvectorP [a v_in].
   rewrite (eigenspaceP (_ : (_ <= _ a))%MS); last first.
     by rewrite eqmx_schmidt_free ?row_base_free ?eq_row_base.
-  rewrite -scalemxAl (normal1P _) ?scaler0 //.
-  by do 2!rewrite eqmx_schmidt_free ?row_base_free ?eq_row_base // normalC.
+  rewrite -scalemxAl (orthomx1P _) ?scaler0 //.
+  by do 2!rewrite eqmx_schmidt_free ?row_base_free ?eq_row_base // orthomxC.
 have drrE X : drsubmx (r X) =
   schmidt (row_base v^_|_) *m X *m schmidt (row_base v^_|_) ^t*.
   by rewrite /r mul_col_mx tr_col_mx map_row_mx mul_col_row block_mxKdr.
@@ -637,7 +629,7 @@ move=> P Punitary /allP /= PP; exists P => //.
 by rewrite !PP ?(mem_head, in_cons, orbT).
 Qed.
 
-Theorem normal_spectral_subproof {n} {A : 'M[C]_n} : reflect
+Theorem orthomx_spectral_subproof {n} {A : 'M[C]_n} : reflect
   (exists2 sp : 'M_n * 'rV_n,
                 sp.1 \is unitary &
                 A = invmx sp.1 *m diag_mx sp.2 *m sp.1)
@@ -664,16 +656,16 @@ by rewrite mulmxA (triangularP _).
 Qed.
 
 Definition spectralmx n (A : 'M[C]_n) : 'M[C]_n :=
-  if @normal_spectral_subproof _ A is ReflectT P
+  if @orthomx_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).1 else 1%:M.
 
 Definition spectral_diag n (A : 'M[C]_n) : 'rV_n :=
-  if @normal_spectral_subproof _ A is ReflectT P
+  if @orthomx_spectral_subproof _ A is ReflectT P
   then (projT1 (sig2_eqW P)).2 else 0.
 
 Lemma spectral_unitary n (A : 'M[C]_n) : spectralmx A \is unitary.
 Proof.
-rewrite /spectralmx; case: normal_spectral_subproof; last first.
+rewrite /spectralmx; case: orthomx_spectral_subproof; last first.
   by move=> _; apply/unitaryP; rewrite trmx1 map_mx1 mulmx1.
 by move=> ?; case: sig2_eqW.
 Qed.
@@ -681,14 +673,14 @@ Qed.
 Lemma spectral_unit  n (A : 'M[C]_n) : spectralmx A \in unitmx.
 Proof. exact/unitary_unit/spectral_unitary. Qed.
 
-Theorem normal_spectralP {n} {A : 'M[C]_n}
+Theorem orthomx_spectralP {n} {A : 'M[C]_n}
   (P := spectralmx A) (sp := spectral_diag A) :
   reflect (A = invmx P *m diag_mx sp *m P) (A \is normalmx).
 Proof.
 rewrite /P /sp /spectralmx /spectral_diag.
-case: normal_spectral_subproof.
+case: orthomx_spectral_subproof.
   by move=> Psp; case: sig2_eqW => //=; constructor.
-move=> /normal_spectral_subproof Ann; constructor; apply/eqP.
+move=> /orthomx_spectral_subproof Ann; constructor; apply/eqP.
 apply: contra Ann; rewrite invmx1 mul1mx mulmx1 => /eqP->.
 suff -> : diag_mx 0 = 0 by rewrite qualifE trmx0 map_mx0.
 by move=> ??; apply/matrixP=> i j; rewrite !mxE mul0rn.
@@ -766,10 +758,10 @@ move=> n_gt0 S0; apply/mxOverP/idP; last first.
 by move=> /(_ (Ordinal n_gt0) (Ordinal n_gt0)); rewrite mxE eqxx.
 Qed.
 
-Lemma hermitian_normalmx n (A : 'M[C]_n) : A \is hermitian -> A \is normalmx.
+Lemma hermitian_normalmx n (A : 'M[C]_n) : A \is hermsymmx -> A \is normalmx.
 Proof.
 move=> Ahermi; apply/normalmxP.
-by rewrite {1 4}[A](sesquiP false conjC _ _) // !linearZ /= -!scalemxAl.
+by rewrite {1 4}[A](is_hermitianmxP _ _ _ Ahermi) !linearZ /= -!scalemxAl.
 Qed.
 
 Lemma real_similar n (A B P : 'M[C]_n) : P \in unitmx ->
@@ -819,16 +811,16 @@ have Immx_rect : {in mxOver Num.real &, forall X Y,
 by rewrite !(Remx_rect, Immx_rect) ?mxOverMmx //= => -> ->.
 Qed.
 
-Lemma hermitian_spectral n (A : 'M[C]_n) : A \is hermitian ->
+Lemma hermitian_spectral n (A : 'M[C]_n) : A \is hermsymmx ->
   spectral_diag A \is a mxOver Num.real.
 Proof.
-move=> Ahermi; have /hermitian_normalmx /normal_spectralP A_eq := Ahermi.
+move=> Ahermi; have /hermitian_normalmx /orthomx_spectralP A_eq := Ahermi.
 have /(congr1 (fun X => X^t*)) := A_eq.
 rewrite inv_unitary ?spectral_unitary //.
 rewrite !trmx_mul !map_mxM map_trmx trmxK -map_mx_comp.
 rewrite tr_diag_mx map_diag_mx (eq_map_mx _ (@conjCK _)) map_mx_id.
 rewrite -[in RHS]inv_unitary ?spectral_unitary //.
-have := sesquiP _ _ _ Ahermi; rewrite expr0 scale1r => <-; rewrite {1}A_eq.
+have := is_hermitianmxP _ _ _ Ahermi; rewrite expr0 scale1r => <-; rewrite {1}A_eq.
 rewrite mulmxA; move=> /(congr1 (mulmx^~ (invmx (spectralmx A)))).
 rewrite !mulmxK ?spectral_unit //.
 move=> /(congr1 (mulmx (spectralmx A))); rewrite !mulKVmx ?spectral_unit //.
