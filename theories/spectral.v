@@ -98,17 +98,22 @@ Lemma normalmxP {n} {M: 'M[C]_n} :
   reflect (M *m M ^t* = M ^t* *m M) (M \is normalmx).
 Proof. exact: eqP. Qed.
 
-Local Notation "B ^_|_" := (ortho (@conjC _) 1%:M B) : ring_scope.
-Local Notation "A _|_ B" := (A%MS <= B^_|_)%MS : ring_scope.
+Notation dot_def := (form_of_matrix (@conjC _) 1%:M).
+Definition dot n (u v : 'rV[C]_n) := dot_def u%R v%R.
 
-Local Notation "''[' u , v ]" := (form (@conjC _) 1%:M u%R v%R) : ring_scope.
+Local Notation "''[' u , v ]" := (dot u v) : ring_scope.
 Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
 
-Fact form1_sesqui n : (1%:M : 'M[C]_n) \is hermitian.
+Fact form1_sesqui n : (1%:M : 'M[C]_n) \is (hermitian_mx_pred n false (@conjC _)).
 Proof.
 by rewrite qualifE /= expr0 scale1r tr_scalar_mx map_scalar_mx conjC1.
 Qed.
-Let form1_sesqui_hint := form1_sesqui.
+Canonical form1_hermitian_mx n := HermitianMx (form1_sesqui n).
+Canonical dot_bilinear n := [bilinear of @dot n as dot_def].
+Canonical dot_hermsym n := [hermitian of (@dot n) as dot_def].
+
+Local Notation "B ^_|_" := (orthomx (form1_hermitian_mx _) B) : ring_scope.
+Local Notation "A _|_ B" := (A%MS <= B^_|_)%MS : ring_scope.
 
 Lemma normal1E m n p (A : 'M[C]_(m, n)) (B : 'M_(p, n)) :
   A _|_ B = (A *m B^t* == 0).
