@@ -766,7 +766,7 @@ Local Notation "M ^t phi" := (map_mx phi (M ^T)) (phi at level 30, at level 30).
 Section MatrixForms.
 
 Variables (R : fieldType) (n : nat).
-Implicit Types (a b : R) (u v : 'rV[R]_n) (N P Q : 'M[R]_n).
+Implicit Types (a b : R) (u v : 'rV[R]_n) (M N P Q : 'M[R]_n).
 
 Section Def.
 Variable (theta : R -> R).
@@ -774,6 +774,7 @@ Variable (theta : R -> R).
 Definition form_of_matrix M u v := (u *m M *m (v ^t theta)) 0 0.
 Definition matrix_of_form (form : 'rV[R]_n -> 'rV[R]_n -> R) : 'M[R]_n :=
   \matrix_(i, j) form 'e_i 'e_j.
+Definition orthomx m M (B : 'M_(m,n)) : 'M_n := (kermx (M *m (B ^t theta))).
 
 Implicit Type form : {bilinear 'rV[R]_n -> 'rV[R]_n -> R | *%R & theta \; *%R}.
 
@@ -889,9 +890,7 @@ Canonical form_of_matrix_hermitian := Hermitian form_of_matrix_is_hermitian.
 
 Local Notation "''[' u , v ]" := (form_of_matrix theta M u%R v%R) : ring_scope.
 Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
-
-Definition orthomx m (B : 'M_(m,n)) := (kermx (M *m (B ^t theta))).
-Local Notation "B ^_|_" := (orthomx B) : ring_scope.
+Local Notation "B ^_|_" := (orthomx theta M B) : ring_scope.
 Local Notation "A _|_ B" := (A%MS <= B^_|_)%MS : ring_scope.
 
 Lemma orthomxE u v : (u _|_ v) = ('[u, v] == 0).

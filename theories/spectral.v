@@ -98,21 +98,28 @@ Lemma normalmxP {n} {M: 'M[C]_n} :
   reflect (M *m M ^t* = M ^t* *m M) (M \is normalmx).
 Proof. exact: eqP. Qed.
 
-Notation dot_def := (form_of_matrix (@conjC _) 1%:M).
+Definition conjCfun (C : numClosedFieldType) := conjC : C -> C.
+Canonical conjCfun_rmorphism (C : numClosedFieldType) :=
+  [rmorphism of (@conjCfun C)].
+Canonical conjCfun_involutive (C : numClosedFieldType) :=
+  InvolutiveRMorphism (@conjCK C : involutive (@conjCfun C)).
+
+Notation dot_def := (form_of_matrix (@conjCfun _) 1%:M).
 Definition dot n (u v : 'rV[C]_n) := dot_def u%R v%R.
 
 Local Notation "''[' u , v ]" := (dot u v) : ring_scope.
 Local Notation "''[' u ]" := '[u, u]%R : ring_scope.
 
-Fact form1_sesqui n : (1%:M : 'M[C]_n) \is (hermitian_mx_pred n false (@conjC _)).
+Fact hermitian1 n : (1%:M : 'M[C]_n) \is (hermitian_mx_pred n false (@conjC _)).
 Proof.
 by rewrite qualifE /= expr0 scale1r tr_scalar_mx map_scalar_mx conjC1.
 Qed.
-Canonical form1_hermitian_mx n := HermitianMx (form1_sesqui n).
+Canonical hermitian1mx n := HermitianMx (hermitian1 n).
 Canonical dot_bilinear n := [bilinear of @dot n as dot_def].
 Canonical dot_hermsym n := [hermitian of (@dot n) as dot_def].
 
-Local Notation "B ^_|_" := (orthomx (form1_hermitian_mx _) B) : ring_scope.
+Local Notation "B ^_|_" := 
+  (orthomx (@conjCfun C) (hermitian1mx _) B) : ring_scope.
 Local Notation "A _|_ B" := (A%MS <= B^_|_)%MS : ring_scope.
 
 Lemma normal1E m n p (A : 'M[C]_(m, n)) (B : 'M_(p, n)) :
@@ -124,7 +131,7 @@ Lemma normal1P {m n p : nat} {A : 'M[C]_(m, n)} {B : 'M_(p, n)} :
 Proof. by rewrite normal1E; apply: eqP. Qed.
 
 Lemma form1_ge0 n (u : 'rV[C]_n) : '[u] >= 0.
-Proof.
+Proof. rewrite dnorm_ge0.
 by rewrite /form mulmx1 mxE sumr_ge0 => // i _; rewrite !mxE mul_conjC_ge0.
 Qed.
 Hint Resolve form1_ge0.
