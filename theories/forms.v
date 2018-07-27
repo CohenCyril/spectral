@@ -108,12 +108,12 @@ Include InvolutiveMorphism.Exports.
 
 Section InvolutiveTheory.
 
-Variable (R : ringType).
+Lemma idfunK (R : ringType) : involutive (@idfun R). Proof. by []. Qed.
+Canonical idfun_involutive R := InvolutiveRMorphism (@idfunK R).
+Canonical conjC_involutive (C : numClosedFieldType) :=
+  InvolutiveRMorphism (@conjCK C).
 
-Lemma idfunK : involutive (@idfun R). Proof. by []. Qed.
-Canonical idfun_involutive := InvolutiveRMorphism idfunK.
-
-Variable (f : {involutive_rmorphism R}).
+Variable (R : ringType) (f : {involutive_rmorphism R}).
 Lemma rmorphK : involutive f. Proof. by case: f => [? []]. Qed.
 
 End InvolutiveTheory.
@@ -334,7 +334,6 @@ Canonical linearr.
 Canonical additivel.
 Canonical linearl.
 Canonical bilinear.
-Notation hermapplyr := (@applyr_head _ _ _ _ tt).
 End Exports.
 
 End Hermitian.
